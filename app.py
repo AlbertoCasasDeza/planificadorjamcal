@@ -14,12 +14,12 @@ st.title("🧠 Planificador de Lotes Salazón Jamcal")
 st.sidebar.header("Parámetros de planificación")
 
 # Capacidad global ENTRADA
-st.sidebar.subheader("Capacidad global · ENTRADA")
+st.sidebar.subheader("Capacidad global · ENTRADA SAL")
 cap_ent_1 = st.sidebar.number_input("Entrada · 1º intento", value=3100, step=100, min_value=0)
 cap_ent_2 = st.sidebar.number_input("Entrada · 2º intento", value=3500, step=100, min_value=0)
 
 # Capacidad global SALIDA
-st.sidebar.subheader("Capacidad global · SALIDA")
+st.sidebar.subheader("Capacidad global · SALIDA SAL")
 cap_sal_1 = st.sidebar.number_input("Salida · 1º intento", value=3100, step=100, min_value=0)
 cap_sal_2 = st.sidebar.number_input("Salida · 2º intento", value=3500, step=100, min_value=0)
 
@@ -559,7 +559,7 @@ if uploaded_file is not None:
         st.sidebar.info("No se encontró columna PRODUCTO. Se aplicará solo el límite GLOBAL.")
 
     # Overrides capacidad por fecha
-    st.sidebar.markdown("### 📅 Overrides capacidad ENTRADA (opcional)")
+    st.sidebar.markdown("### 📅 Overrides capacidad ENTRADA SAL (opcional)")
     if "cap_overrides_ent_df" not in st.session_state:
         st.session_state.cap_overrides_ent_df = pd.DataFrame({
             "FECHA": pd.to_datetime(pd.Series([], dtype="datetime64[ns]")),
@@ -581,7 +581,7 @@ if uploaded_file is not None:
         key="cap_overrides_ent_editor"
     )
 
-    st.sidebar.markdown("### 📅 Overrides capacidad SALIDA (opcional)")
+    st.sidebar.markdown("### 📅 Overrides capacidad SALIDA SAL (opcional)")
     if "cap_overrides_sal_df" not in st.session_state:
         st.session_state.cap_overrides_sal_df = pd.DataFrame({
             "FECHA": pd.to_datetime(pd.Series([], dtype="datetime64[ns]")),
@@ -623,7 +623,7 @@ if uploaded_file is not None:
     )
 
     # Overrides PRENSAS
-    st.sidebar.markdown("### 📅 Overrides capacidad ENTRADA_PRENSAS (opcional)")
+    st.sidebar.markdown("### 📅 Overrides capacidad ENTRADA PRENSAS (opcional)")
     if "cap_overrides_prensas_ent_df" not in st.session_state:
         st.session_state.cap_overrides_prensas_ent_df = pd.DataFrame({
             "FECHA": pd.to_datetime(pd.Series([], dtype="datetime64[ns]")),
@@ -642,7 +642,7 @@ if uploaded_file is not None:
         key="cap_overrides_prensas_ent_editor"
     )
 
-    st.sidebar.markdown("### 📅 Overrides capacidad SALIDA_PRENSAS (opcional)")
+    st.sidebar.markdown("### 📅 Overrides capacidad SALIDA PRENSAS (opcional)")
     if "cap_overrides_prensas_sal_df" not in st.session_state:
         st.session_state.cap_overrides_prensas_sal_df = pd.DataFrame({
             "FECHA": pd.to_datetime(pd.Series([], dtype="datetime64[ns]")),
@@ -1087,4 +1087,5 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
