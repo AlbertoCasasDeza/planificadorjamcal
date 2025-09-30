@@ -919,7 +919,7 @@ if uploaded_file is not None:
         # -------------------------------
         # Gráfico: Entradas/Salidas PRENSAS por lote/fecha
         # -------------------------------
-        st.subheader("🗜️ Entradas y salidas de PRENSAS por fecha con detalle por lote")
+        st.subheader("📊 Entradas y salidas de PRENSAS por fecha con detalle por lote")
 
         figp = go.Figure()
 
@@ -1087,5 +1087,6 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
