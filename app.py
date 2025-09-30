@@ -34,8 +34,8 @@ estab_cap = st.sidebar.number_input(
 
 # --- Capacidad de PRENSAS ---
 st.sidebar.subheader("Capacidad · PRENSAS")
-cap_prensas_ent_global = st.sidebar.number_input("Capacidad diaria de ENTRADA_PRENSAS", value=3300, step=100, min_value=0)
-cap_prensas_sal_global = st.sidebar.number_input("Capacidad diaria de SALIDA_PRENSAS", value=3200, step=100, min_value=0)
+cap_prensas_ent_global = st.sidebar.number_input("Capacidad diaria ENTRADA PRENSAS", value=3300, step=100, min_value=0)
+cap_prensas_sal_global = st.sidebar.number_input("Capacidad diaria SALIDA PRENSAS", value=3200, step=100, min_value=0)
 
 dias_festivos_default = [
     "2025-01-01", "2025-04-18", "2025-05-01", "2025-08-15",
@@ -1087,3 +1087,4 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
