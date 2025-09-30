@@ -40,7 +40,7 @@ dias_max_almacen_global = st.sidebar.number_input("Días máx. almacenamiento (G
 st.sidebar.subheader("Capacidad cámara de estabilización (GLOBAL)")
 estab_cap = st.sidebar.number_input(
     "Capacidad cámara de estabilización (unds)",
-    value=4700, step=100, min_value=0
+    value=4100, step=100, min_value=0
 )
 
 dias_festivos_default = [
@@ -1162,6 +1162,7 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
