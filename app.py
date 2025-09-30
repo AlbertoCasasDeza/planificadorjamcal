@@ -1,4 +1,4 @@
-# app.py
+# app.py 
 import pandas as pd
 import streamlit as st
 from datetime import timedelta
@@ -13,15 +13,15 @@ st.title("🧠 Planificador de Lotes Salazón Jamcal")
 # -------------------------------
 st.sidebar.header("Parámetros de planificación")
 
-# Capacidad global ENTRADA
+# Capacidad global ENTRADA SAL
 st.sidebar.subheader("Capacidad global · ENTRADA SAL")
-cap_ent_1 = st.sidebar.number_input("Entrada · 1º intento", value=3800, step=100, min_value=0)
-cap_ent_2 = st.sidebar.number_input("Entrada · 2º intento", value=4200, step=100, min_value=0)
+cap_ent_1 = st.sidebar.number_input("Entrada SAL · 1º intento", value=3800, step=100, min_value=0)
+cap_ent_2 = st.sidebar.number_input("Entrada SAL · 2º intento", value=4200, step=100, min_value=0)
 
-# Capacidad global SALIDA
+# Capacidad global SALIDA SAL
 st.sidebar.subheader("Capacidad global · SALIDA SAL")
-cap_sal_1 = st.sidebar.number_input("Salida · 1º intento", value=3800, step=100, min_value=0)
-cap_sal_2 = st.sidebar.number_input("Salida · 2º intento", value=4200, step=100, min_value=0)
+cap_sal_1 = st.sidebar.number_input("Salida SAL · 1º intento", value=3800, step=100, min_value=0)
+cap_sal_2 = st.sidebar.number_input("Salida SAL · 2º intento", value=4200, step=100, min_value=0)
 
 # Límite GLOBAL en días naturales entre DIA (recepción) y ENTRADA_SAL
 dias_max_almacen_global = st.sidebar.number_input("Días máx. almacenamiento (GLOBAL)", value=2, step=1)
@@ -32,10 +32,12 @@ estab_cap = st.sidebar.number_input(
     value=4700, step=100, min_value=0
 )
 
-# --- Capacidad de PRENSAS ---
+# --- Capacidad de PRENSAS (con 1º y 2º intento) ---
 st.sidebar.subheader("Capacidad · PRENSAS")
-cap_prensas_ent_global = st.sidebar.number_input("Capacidad diaria ENTRADA PRENSAS", value=3800, step=100, min_value=0)
-cap_prensas_sal_global = st.sidebar.number_input("Capacidad diaria SALIDA PRENSAS", value=3800, step=100, min_value=0)
+cap_prensas_ent_1 = st.sidebar.number_input("Entrada PRS · 1º intento", value=3800, step=100, min_value=0)
+cap_prensas_ent_2 = st.sidebar.number_input("Entrada PRS · 2º intento", value=4200, step=100, min_value=0)
+cap_prensas_sal_1 = st.sidebar.number_input("Salida PRS · 1º intento", value=3800, step=100, min_value=0)
+cap_prensas_sal_2 = st.sidebar.number_input("Salida PRS · 2º intento", value=4200, step=100, min_value=0)
 
 dias_festivos_default = [
     "2025-01-01", "2025-04-18", "2025-05-01", "2025-08-15",
@@ -156,7 +158,7 @@ def generar_excel(df_out, filename="archivo.xlsx"):
     return output
 
 # -------------------------------
-# Planificador (incluye prensas)
+# Planificador (incluye prensas con 1º/2º intento)
 # -------------------------------
 def planificar_filas_na(
     df_plan,
@@ -166,8 +168,12 @@ def planificar_filas_na(
     cap_overrides_ent,
     cap_overrides_sal,
     estab_cap_overrides,
-    cap_prensas_ent_global,
-    cap_prensas_sal_global,
+    # PRS globals (1º/2º)
+    cap_prensas_ent_1,
+    cap_prensas_ent_2,
+    cap_prensas_sal_1,
+    cap_prensas_sal_2,
+    # PRS overrides (CAP1/CAP2)
     cap_overrides_prensas_ent,
     cap_overrides_prensas_sal
 ):
@@ -195,7 +201,7 @@ def planificar_filas_na(
     carga_prensas_entrada = df_corr.dropna(subset=["ENTRADA_PRENSAS"]).groupby("ENTRADA_PRENSAS")["UNDS"].sum().to_dict()
     carga_prensas_salida  = df_corr.dropna(subset=["SALIDA_PRENSAS"]).groupby("SALIDA_PRENSAS")["UNDS"].sum().to_dict()
 
-    # Helpers capacidades
+    # Helpers capacidades SAL
     def get_cap_ent(date_dt, attempt):
         dkey = pd.to_datetime(date_dt).normalize()
         ov = cap_overrides_ent.get(dkey)
@@ -216,20 +222,32 @@ def planificar_filas_na(
                 return int(ov["CAP2"])
         return cap_sal_1 if attempt == 1 else cap_sal_2
 
+    # Capacidad de estabilización por día
     def get_estab_cap(date_dt):
         dkey = pd.to_datetime(date_dt).normalize()
         ov = estab_cap_overrides.get(dkey)
         return ov if (ov is not None and pd.notna(ov)) else estab_cap
 
-    def get_cap_prensas_ent(date_dt):
+    # Helpers capacidades PRS (con attempt)
+    def get_cap_prensas_ent(date_dt, attempt):
         dkey = pd.to_datetime(date_dt).normalize()
         ov = cap_overrides_prensas_ent.get(dkey)
-        return int(ov) if (ov is not None and pd.notna(ov)) else int(cap_prensas_ent_global)
+        if ov is not None:
+            if attempt == 1 and pd.notna(ov.get("CAP1")):
+                return int(ov["CAP1"])
+            if attempt == 2 and pd.notna(ov.get("CAP2")):
+                return int(ov["CAP2"])
+        return cap_prensas_ent_1 if attempt == 1 else cap_prensas_ent_2
 
-    def get_cap_prensas_sal(date_dt):
+    def get_cap_prensas_sal(date_dt, attempt):
         dkey = pd.to_datetime(date_dt).normalize()
         ov = cap_overrides_prensas_sal.get(dkey)
-        return int(ov) if (ov is not None and pd.notna(ov)) else int(cap_prensas_sal_global)
+        if ov is not None:
+            if attempt == 1 and pd.notna(ov.get("CAP1")):
+                return int(ov["CAP1"])
+            if attempt == 2 and pd.notna(ov.get("CAP2")):
+                return int(ov["CAP2"])
+        return cap_prensas_sal_1 if attempt == 1 else cap_prensas_sal_2
 
     # Chequeo estabilización
     def cabe_en_estab_rango(fecha_ini, fecha_fin_inclusive, unds):
@@ -257,7 +275,7 @@ def planificar_filas_na(
         return deficits
 
     # ===============================
-    # Asignación de pendientes (solo filas con ENTRADA_SAL NaN)
+    # Asignación de pendientes (solo ENTRADA_SAL NaN) con prioridad USA/MEX
     # ===============================
     sugerencias_rows = []
 
@@ -271,7 +289,7 @@ def planificar_filas_na(
 
     pendientes["__PRIO__"] = pendientes.apply(_prioritario, axis=1)
 
-    # Orden de trabajo: PRIO desc → DIA asc → PRODUCTO asc (si existe)
+    # Orden: PRIO desc → DIA asc → PRODUCTO asc (si existe)
     if {"DIA", "PRODUCTO"}.issubset(pendientes.columns):
         pendientes = pendientes.sort_values(["__PRIO__", "DIA", "PRODUCTO"], ascending=[False, True, True], kind="stable")
     elif "DIA" in pendientes.columns:
@@ -298,7 +316,7 @@ def planificar_filas_na(
                 if carga_entrada.get(entrada, 0) + unds <= cap_ent_dia:
                     # Estabilización entre DIA y ENTRADA_SAL
                     if cabe_en_estab_rango(dia_recepcion, entrada - pd.Timedelta(days=1), unds):
-                        # Proponer salida de sal
+                        # Proponer SALIDA_SAL
                         salida = entrada + timedelta(days=dias_sal_optimos)
                         if ajuste_finde:
                             if salida.weekday() == 5:
@@ -323,21 +341,21 @@ def planificar_filas_na(
                             # ---- PRS: JDOT no pasa por prensas
                             if prod.strip().upper() != "JDOT":
                                 entrada_prensas = salida.normalize()  # MISMO DÍA que SALIDA_SAL
-                                # Comprobar capacidad ENTRADA_PRENSAS (mismo día)
-                                cap_ent_pr = get_cap_prensas_ent(entrada_prensas)
+                                # Capacidad ENTRADA_PRENSAS (mismo día) con attempt
+                                cap_ent_pr = get_cap_prensas_ent(entrada_prensas, attempt)
                                 used_ent_pr = int(carga_prensas_entrada.get(entrada_prensas, 0))
                                 if used_ent_pr + unds > cap_ent_pr:
-                                    pass  # no cabe en ENTRADA_PRENSAS
+                                    pass  # no cabe ENTRADA_PRENSAS
                                 else:
-                                    # SALIDA_PRENSAS: día hábil siguiente (o +1 si no cabe)
+                                    # SALIDA_PRENSAS: día hábil siguiente (o +1 si no cabe), con attempt
                                     salida1 = siguiente_habil(entrada_prensas)
-                                    cap1 = get_cap_prensas_sal(salida1)
+                                    cap1 = get_cap_prensas_sal(salida1, attempt)
                                     used1 = int(carga_prensas_salida.get(salida1, 0))
                                     if used1 + unds <= cap1:
                                         salida_prensas_final = salida1
                                     else:
                                         salida2 = siguiente_habil(salida1)
-                                        cap2 = get_cap_prensas_sal(salida2)
+                                        cap2 = get_cap_prensas_sal(salida2, attempt)
                                         used2 = int(carga_prensas_salida.get(salida2, 0))
                                         if used2 + unds <= cap2:
                                             salida_prensas_final = salida2
@@ -358,7 +376,7 @@ def planificar_filas_na(
                 entrada = siguiente_habil(entrada)
 
             if candidatos:
-                # Elegir mejor candidato (ajuste a DIAS_SAL_OPTIMOS, luego entrada temprana, luego intento)
+                # Elegir mejor candidato (cercanía a DIAS_SAL_OPTIMOS, luego entrada temprana, luego intento)
                 candidatos.sort(key=lambda t: t[0])
                 _, entrada_sel, salida_sel, entrada_pr_sel, salida_pr_sel = candidatos[0]
 
@@ -369,7 +387,7 @@ def planificar_filas_na(
                 df_corr.at[idx, "DIAS_ALMACENADOS"] = (entrada_sel - dia_recepcion).days
                 df_corr.at[idx, "LOTE_NO_ENCAJA"]   = "No"
 
-                # Actualizar cargas SAL y estabilización
+                # Reservar capacidades SAL y estabilización
                 carga_entrada[entrada_sel] = carga_entrada.get(entrada_sel, 0) + unds
                 carga_salida[salida_sel]   = carga_salida.get(salida_sel, 0) + unds
                 if entrada_sel.date() > dia_recepcion.date():
@@ -390,7 +408,7 @@ def planificar_filas_na(
                 asignado = True
                 break
 
-        # Si no se pudo asignar → generar sugerencias (incluye prensas)
+        # Si no se pudo asignar → generar sugerencias (incluye prensas con attempt)
         if not asignado:
             df_corr.at[idx, "LOTE_NO_ENCAJA"] = "Sí"
 
@@ -441,21 +459,20 @@ def planificar_filas_na(
                         entrada_pr = pd.to_datetime(salida).normalize()  # propuesta: mismo día que SALIDA_SAL
                         entrada_pr_prop = entrada_pr
 
-                        # ENTRADA_PRENSAS
-                        cap_ent_pr = get_cap_prensas_ent(entrada_pr)
+                        # ENTRADA_PRENSAS (attempt-aware)
+                        cap_ent_pr = get_cap_prensas_ent(entrada_pr, attempt)
                         used_ent_pr = int(carga_prensas_entrada.get(entrada_pr, 0))
                         deficit_ent_pr = max(0, (used_ent_pr + unds) - cap_ent_pr)
 
-                        # SALIDA_PRENSAS: día hábil siguiente (o +1 si no cabe) → escoger la que tenga MENOR déficit
+                        # SALIDA_PRENSAS (attempt-aware): siguiente hábil o +1 si no cabe
                         salida1 = siguiente_habil(entrada_pr)
-                        cap1 = get_cap_prensas_sal(salida1); used1 = int(carga_prensas_salida.get(salida1, 0))
+                        cap1 = get_cap_prensas_sal(salida1, attempt); used1 = int(carga_prensas_salida.get(salida1, 0))
                         deficit1 = max(0, (used1 + unds) - cap1)
 
                         salida2 = siguiente_habil(salida1)
-                        cap2 = get_cap_prensas_sal(salida2); used2 = int(carga_prensas_salida.get(salida2, 0))
+                        cap2 = get_cap_prensas_sal(salida2, attempt); used2 = int(carga_prensas_salida.get(salida2, 0))
                         deficit2 = max(0, (used2 + unds) - cap2)
 
-                        # Propuesta: el día con menor déficit (si empatan, el más temprano)
                         if deficit1 <= deficit2:
                             salida_pr_prop = salida1
                             deficit_sal_pr = deficit1
@@ -463,7 +480,7 @@ def planificar_filas_na(
                             salida_pr_prop = salida2
                             deficit_sal_pr = deficit2
 
-                    # Generar texto de recomendación
+                    # Recomendación
                     recomendaciones = []
                     if deficit_ent > 0:
                         recomendaciones.append(
@@ -480,11 +497,11 @@ def planificar_filas_na(
                     if prod.strip().upper() != "JDOT":
                         if deficit_ent_pr > 0:
                             recomendaciones.append(
-                                f"Subir ENTRADA_PRENSAS el {entrada_pr_prop.date()} en +{int(deficit_ent_pr)} unds."
+                                f"Subir ENTRADA_PRENSAS el {entrada_pr_prop.date()} en +{int(deficit_ent_pr)} unds (INTENTO {attempt})."
                             )
                         if deficit_sal_pr > 0:
                             recomendaciones.append(
-                                f"Subir SALIDA_PRENSAS ({salida_pr_prop.date()}) en +{int(deficit_sal_pr)} unds."
+                                f"Subir SALIDA_PRENSAS ({salida_pr_prop.date()}) en +{int(deficit_sal_pr)} unds (INTENTO {attempt})."
                             )
 
                     sugerencias_rows_lote.append({
@@ -563,15 +580,14 @@ if uploaded_file is not None:
     # --- Normaliza columnas USA/MEX (SI/NO) ---
     for col_flag in ["USA", "MEX"]:
         if col_flag not in df.columns:
-            df[col_flag] = "NO"  # por defecto si no existe
+            df[col_flag] = "NO"
         df[col_flag] = (
             df[col_flag]
             .astype(str)
             .str.strip()
             .str.upper()
-            .replace({"SÍ": "SI"})   # por si viene con tilde
+            .replace({"SÍ": "SI"})
         )
-        # Cualquier valor no reconocido → NO
         df.loc[~df[col_flag].isin(["SI", "NO"]), col_flag] = "NO"
 
     # Overrides por PRODUCTO
@@ -603,7 +619,7 @@ if uploaded_file is not None:
     else:
         st.sidebar.info("No se encontró columna PRODUCTO. Se aplicará solo el límite GLOBAL.")
 
-    # Overrides capacidad por fecha
+    # Overrides capacidad por fecha - SAL ENTRADA
     st.sidebar.markdown("### 📅 Overrides capacidad ENTRADA SAL (opcional)")
     if "cap_overrides_ent_df" not in st.session_state:
         st.session_state.cap_overrides_ent_df = pd.DataFrame({
@@ -619,13 +635,14 @@ if uploaded_file is not None:
         num_rows="dynamic",
         use_container_width=True,
         column_config={
-            "FECHA": st.column_config.DateColumn("Fecha (entrada)", format="YYYY-MM-DD"),
+            "FECHA": st.column_config.DateColumn("Fecha (entrada SAL)", format="YYYY-MM-DD"),
             "CAP1": st.column_config.NumberColumn("Capacidad 1º intento", step=50, min_value=0),
             "CAP2": st.column_config.NumberColumn("Capacidad 2º intento", step=50, min_value=0),
         },
         key="cap_overrides_ent_editor"
     )
 
+    # Overrides capacidad por fecha - SAL SALIDA
     st.sidebar.markdown("### 📅 Overrides capacidad SALIDA SAL (opcional)")
     if "cap_overrides_sal_df" not in st.session_state:
         st.session_state.cap_overrides_sal_df = pd.DataFrame({
@@ -641,13 +658,14 @@ if uploaded_file is not None:
         num_rows="dynamic",
         use_container_width=True,
         column_config={
-            "FECHA": st.column_config.DateColumn("Fecha (salida)", format="YYYY-MM-DD"),
-            "CAP1": st.column_config.NumberColumn("Capacidad 1º intento", step=50, min_value=0),
-            "CAP2": st.column_config.NumberColumn("Capacidad 2º intento", step=50, min_value=0),
+                "FECHA": st.column_config.DateColumn("Fecha (salida SAL)", format="YYYY-MM-DD"),
+                "CAP1": st.column_config.NumberColumn("Capacidad 1º intento", step=50, min_value=0),
+                "CAP2": st.column_config.NumberColumn("Capacidad 2º intento", step=50, min_value=0),
         },
         key="cap_overrides_sal_editor"
     )
 
+    # Overrides capacidad por fecha - ESTABILIZACIÓN
     st.sidebar.markdown("### 📅 Overrides capacidad ESTABILIZACIÓN (opcional)")
     if "cap_overrides_estab_df" not in st.session_state:
         st.session_state.cap_overrides_estab_df = pd.DataFrame({
@@ -667,41 +685,48 @@ if uploaded_file is not None:
         key="cap_overrides_estab_editor"
     )
 
-    # Overrides PRENSAS
+    # Overrides PRS ENTRADA (CAP1/CAP2)
     st.sidebar.markdown("### 📅 Overrides capacidad ENTRADA PRENSAS (opcional)")
     if "cap_overrides_prensas_ent_df" not in st.session_state:
         st.session_state.cap_overrides_prensas_ent_df = pd.DataFrame({
             "FECHA": pd.to_datetime(pd.Series([], dtype="datetime64[ns]")),
-            "CAP":   pd.Series([], dtype="Int64"),
+            "CAP1":  pd.Series([], dtype="Int64"),
+            "CAP2":  pd.Series([], dtype="Int64"),
         })
     st.session_state.cap_overrides_prensas_ent_df["FECHA"] = pd.to_datetime(st.session_state.cap_overrides_prensas_ent_df["FECHA"], errors="coerce")
-    st.session_state.cap_overrides_prensas_ent_df["CAP"] = pd.to_numeric(st.session_state.cap_overrides_prensas_ent_df["CAP"], errors="coerce").astype("Int64")
+    for c in ("CAP1", "CAP2"):
+        st.session_state.cap_overrides_prensas_ent_df[c] = pd.to_numeric(st.session_state.cap_overrides_prensas_ent_df[c], errors="coerce").astype("Int64")
     cap_overrides_prensas_ent_df = st.sidebar.data_editor(
         st.session_state.cap_overrides_prensas_ent_df,
         num_rows="dynamic",
         use_container_width=True,
         column_config={
-            "FECHA": st.column_config.DateColumn("Fecha (ENTRADA_PRENSAS)", format="YYYY-MM-DD"),
-            "CAP":   st.column_config.NumberColumn("Capacidad entrada prensas (unds/día)", step=50, min_value=0),
+            "FECHA": st.column_config.DateColumn("Fecha (ENTRADA PRENSAS)", format="YYYY-MM-DD"),
+            "CAP1":  st.column_config.NumberColumn("Capacidad 1º intento", step=50, min_value=0),
+            "CAP2":  st.column_config.NumberColumn("Capacidad 2º intento", step=50, min_value=0),
         },
         key="cap_overrides_prensas_ent_editor"
     )
 
+    # Overrides PRS SALIDA (CAP1/CAP2)
     st.sidebar.markdown("### 📅 Overrides capacidad SALIDA PRENSAS (opcional)")
     if "cap_overrides_prensas_sal_df" not in st.session_state:
         st.session_state.cap_overrides_prensas_sal_df = pd.DataFrame({
             "FECHA": pd.to_datetime(pd.Series([], dtype="datetime64[ns]")),
-            "CAP":   pd.Series([], dtype="Int64"),
+            "CAP1":  pd.Series([], dtype="Int64"),
+            "CAP2":  pd.Series([], dtype="Int64"),
         })
     st.session_state.cap_overrides_prensas_sal_df["FECHA"] = pd.to_datetime(st.session_state.cap_overrides_prensas_sal_df["FECHA"], errors="coerce")
-    st.session_state.cap_overrides_prensas_sal_df["CAP"] = pd.to_numeric(st.session_state.cap_overrides_prensas_sal_df["CAP"], errors="coerce").astype("Int64")
+    for c in ("CAP1", "CAP2"):
+        st.session_state.cap_overrides_prensas_sal_df[c] = pd.to_numeric(st.session_state.cap_overrides_prensas_sal_df[c], errors="coerce").astype("Int64")
     cap_overrides_prensas_sal_df = st.sidebar.data_editor(
         st.session_state.cap_overrides_prensas_sal_df,
         num_rows="dynamic",
         use_container_width=True,
         column_config={
-            "FECHA": st.column_config.DateColumn("Fecha (SALIDA_PRENSAS)", format="YYYY-MM-DD"),
-            "CAP":   st.column_config.NumberColumn("Capacidad salida prensas (unds/día)", step=50, min_value=0),
+            "FECHA": st.column_config.DateColumn("Fecha (SALIDA PRENSAS)", format="YYYY-MM-DD"),
+            "CAP1":  st.column_config.NumberColumn("Capacidad 1º intento", step=50, min_value=0),
+            "CAP2":  st.column_config.NumberColumn("Capacidad 2º intento", step=50, min_value=0),
         },
         key="cap_overrides_prensas_sal_editor"
     )
@@ -743,8 +768,10 @@ if uploaded_file is not None:
         tmp4 = cap_overrides_prensas_ent_df.dropna(subset=["FECHA"]).copy()
         tmp4["FECHA"] = pd.to_datetime(tmp4["FECHA"]).dt.normalize()
         for _, r in tmp4.iterrows():
-            if pd.notna(r["CAP"]):
-                cap_overrides_prensas_ent[r["FECHA"]] = int(r["CAP"])
+            cap_overrides_prensas_ent[r["FECHA"]] = {
+                "CAP1": (int(r["CAP1"]) if pd.notna(r["CAP1"]) else None),
+                "CAP2": (int(r["CAP2"]) if pd.notna(r["CAP2"]) else None),
+            }
     st.session_state.cap_overrides_prensas_ent_df = cap_overrides_prensas_ent_df
 
     cap_overrides_prensas_sal = {}
@@ -752,8 +779,10 @@ if uploaded_file is not None:
         tmp5 = cap_overrides_prensas_sal_df.dropna(subset=["FECHA"]).copy()
         tmp5["FECHA"] = pd.to_datetime(tmp5["FECHA"]).dt.normalize()
         for _, r in tmp5.iterrows():
-            if pd.notna(r["CAP"]):
-                cap_overrides_prensas_sal[r["FECHA"]] = int(r["CAP"])
+            cap_overrides_prensas_sal[r["FECHA"]] = {
+                "CAP1": (int(r["CAP1"]) if pd.notna(r["CAP1"]) else None),
+                "CAP2": (int(r["CAP2"]) if pd.notna(r["CAP2"]) else None),
+            }
     st.session_state.cap_overrides_prensas_sal_df = cap_overrides_prensas_sal_df
 
     # ===============================
@@ -814,7 +843,7 @@ if uploaded_file is not None:
         df_planificado, df_sugerencias = planificar_filas_na(
             df_trabajo, dias_max_almacen_global, dias_max_por_producto,
             estab_cap, cap_overrides_ent, cap_overrides_sal, estab_cap_overrides,
-            cap_prensas_ent_global, cap_prensas_sal_global,
+            cap_prensas_ent_1, cap_prensas_ent_2, cap_prensas_sal_1, cap_prensas_sal_2,
             cap_overrides_prensas_ent, cap_overrides_prensas_sal
         )
         st.session_state["df_planificado"] = df_planificado
@@ -822,7 +851,7 @@ if uploaded_file is not None:
         st.success(f"✅ Replanificación aplicada a {len(idx_a_replan)} lote(s). El resto no se ha modificado.")
 
     # ===============================
-    # Mostrar tabla editable, gráficos y estabilización (fuera del botón)
+    # Mostrar tabla editable, gráficos y estabilización
     # ===============================
     if "df_planificado" in st.session_state:
         df_show = st.session_state["df_planificado"]
@@ -949,7 +978,7 @@ if uploaded_file is not None:
         ticks = pd.Index(sorted(set(
             (pivot_e.index.tolist() if not pivot_e.empty else []) +
             (pivot_s.index.tolist() if not pivot_s.empty else [])
-        )))
+        ))))
         fig.update_layout(
             barmode="relative",
             xaxis_title="Fecha",
@@ -1104,7 +1133,7 @@ if uploaded_file is not None:
             _, df_sug = planificar_filas_na(
                 df_show, dias_max_almacen_global, dias_max_por_producto,
                 estab_cap, cap_overrides_ent, cap_overrides_sal, estab_cap_overrides,
-                cap_prensas_ent_global, cap_prensas_sal_global,
+                cap_prensas_ent_1, cap_prensas_ent_2, cap_prensas_sal_1, cap_prensas_sal_2,
                 cap_overrides_prensas_ent, cap_overrides_prensas_sal
             )
             st.session_state["df_sugerencias"] = df_sug
@@ -1132,4 +1161,3 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
