@@ -15,13 +15,13 @@ st.sidebar.header("Parámetros de planificación")
 
 # Capacidad global ENTRADA SAL
 st.sidebar.subheader("Capacidad global · ENTRADA SAL")
-cap_ent_1 = st.sidebar.number_input("SAL · ENTRADA · 1º intento", value=3800, step=100, min_value=0)
-cap_ent_2 = st.sidebar.number_input("SAL · ENTRADA · 2º intento", value=4200, step=100, min_value=0)
+cap_ent_1 = st.sidebar.number_input("Entrada · 1º intento", value=3800, step=100, min_value=0, key="cap_ent_1")
+cap_ent_2 = st.sidebar.number_input("Entrada · 2º intento", value=4200, step=100, min_value=0, key="cap_ent_2")
 
 # Capacidad global SALIDA SAL
 st.sidebar.subheader("Capacidad global · SALIDA SAL")
-cap_sal_1 = st.sidebar.number_input("SAL · SALIDA · 1º intento", value=3800, step=100, min_value=0)
-cap_sal_2 = st.sidebar.number_input("SAL · SALIDA · 2º intento", value=4200, step=100, min_value=0)
+cap_sal_1 = st.sidebar.number_input("Salida · 1º intento", value=3800, step=100, min_value=0, key="cap_sal_1")
+cap_sal_2 = st.sidebar.number_input("Salida · 2º intento", value=4200, step=100, min_value=0, key="cap_sal_2")
 
 # Límite GLOBAL en días naturales entre DIA (recepción) y ENTRADA_SAL
 st.sidebar.subheader("Días máx. almacenamiento (GLOBAL)")
@@ -35,13 +35,13 @@ estab_cap = st.sidebar.number_input(
 )
 
 # --- Capacidad de PRENSAS (global 1º/2º intento) ---
-st.sidebar.subheader("Capacidad global · ENTRADA PRENSAS")
-cap_prensas_ent_1 = st.sidebar.number_input("PRENSAS · ENTRADA · 1º intento", value=3800, step=100, min_value=0)
-cap_prensas_ent_2 = st.sidebar.number_input("PRENSAS · ENTRADA · 2º intento", value=4200, step=100, min_value=0)
+st.sidebar.subheader("Capacidad global· ENTRADA PRENSAS")
+cap_prensas_ent_1 = st.sidebar.number_input("Entrada · 1º intento", value=3800, step=100, min_value=0, key="cap_pr_ent_1")
+cap_prensas_ent_2 = st.sidebar.number_input("Entrada · 2º intento", value=4200, step=100, min_value=0, key="cap_pr_ent_2")
 
-st.sidebar.subheader("Capacidad global · SALIDA PRENSAS")
-cap_prensas_sal_1 = st.sidebar.number_input("PRENSAS · SALIDA · 1º intento", value=3800, step=100, min_value=0)
-cap_prensas_sal_2 = st.sidebar.number_input("PRENSAS · SALIDA · 2º intento", value=4200, step=100, min_value=0)
+st.sidebar.subheader("Capacidad global· SALIDA PRENSAS")
+cap_prensas_sal_1 = st.sidebar.number_input("Salida · 1º intento", value=3800, step=100, min_value=0, key="cap_pr_sal_1")
+cap_prensas_sal_2 = st.sidebar.number_input("Salida · 2º intento", value=4200, step=100, min_value=0, key="cap_pr_sal_2")
 
 dias_festivos_default = [
     "2025-01-01", "2025-04-18", "2025-05-01", "2025-08-15",
@@ -161,11 +161,27 @@ def generar_excel(df_out, filename="archivo.xlsx"):
     output.seek(0)
     return output
 
-def _is_rango_12_13(rango_val):
-    s = str(rango_val or "").lower()
-    s = s.replace("kg", "").replace(" ", "").replace(",", ".")
-    # Acepta variantes comunes
-    return s in {"12.0-13.0", "12-13", "12-13.0", "12.0-13"}
+# --- Helper: normaliza floats desde texto con \xa0 y comas ---
+def _to_float_or_nan(x):
+    if pd.isna(x):
+        return pd.NA
+    s = str(x).replace("\xa0", "").replace(",", ".").strip()
+    try:
+        return float(s) if s != "" else pd.NA
+    except Exception:
+        return pd.NA
+
+# --- Helper: detecta rango EXACTO por MIN/MAX (12.0 y 13.0) ---
+def es_rango_12_13(row) -> bool:
+    try:
+        mn = row.get("MIN_PESO", pd.NA)
+        mx = row.get("MAX_PESO", pd.NA)
+        if pd.isna(mn) or pd.isna(mx):
+            return False
+        # Tolerancia pequeña por si vienen como 12.0000001
+        return abs(float(mn) - 12.0) < 1e-6 and abs(float(mx) - 13.0) < 1e-6
+    except Exception:
+        return False
 
 # -------------------------------
 # Planificador (incluye prensas)
@@ -280,28 +296,6 @@ def planificar_filas_na(
                 deficits[d0] = int(falta)
         return deficits
 
-    # Ajusta una salida (fecha base) por fines de semana / festivos y balancea
-    def ajustar_salida(salida_base):
-        salida = salida_base
-        if ajuste_finde:
-            if salida.weekday() == 5:
-                salida = anterior_habil(salida)
-            elif salida.weekday() == 6:
-                salida = siguiente_habil(salida)
-        if ajuste_festivos and (salida.normalize() in dias_festivos):
-            dia_semana = salida.weekday()
-            if dia_semana == 0:
-                salida = siguiente_habil(salida)
-            elif dia_semana in [1, 2, 3]:
-                anterior = anterior_habil(salida)
-                siguiente = siguiente_habil(salida)
-                carga_ant  = carga_salida.get(anterior, 0)
-                carga_sig  = carga_salida.get(siguiente, 0)
-                salida = anterior if carga_ant <= carga_sig else siguiente
-            elif dia_semana == 4:
-                salida = anterior_habil(salida)
-        return salida
-
     # ===============================
     # Asignación de pendientes (solo filas con ENTRADA_SAL NaN)
     # ===============================
@@ -331,16 +325,13 @@ def planificar_filas_na(
         dias_sal_optimos = int(row["DIAS_SAL_OPTIMOS"])
         prod             = str(row.get("PRODUCTO", "") or "")
         lote_id          = row.get("LOTE", idx)
-        rango_peso       = row.get("RANGO_PESO", "")
+
+        # --- +1 día si el rango es EXACTO MIN=12.0, MAX=13.0
+        dias_sal_optimos_eff = dias_sal_optimos + 1 if es_rango_12_13(row) else dias_sal_optimos
 
         dias_max_almacen = dias_max_por_producto.get(prod, dias_max_almacen_global)
         entrada_ini = dia_recepcion if es_habil(dia_recepcion) else siguiente_habil(dia_recepcion)
         asignado = False
-
-        # Opciones de días de SAL permitido (normal + excepción 12-13 kg)
-        dias_sal_opciones = [dias_sal_optimos]
-        if _is_rango_12_13(rango_peso):
-            dias_sal_opciones.append(dias_sal_optimos + 1)
 
         for attempt in [1, 2]:
             candidatos = []
@@ -350,51 +341,68 @@ def planificar_filas_na(
                 if carga_entrada.get(entrada, 0) + unds <= cap_ent_dia:
                     # Estabilización entre DIA y ENTRADA_SAL
                     if cabe_en_estab_rango(dia_recepcion, entrada - pd.Timedelta(days=1), unds):
+                        # Proponer salida de sal (usar óptimos efectivos)
+                        salida = entrada + timedelta(days=dias_sal_optimos_eff)
+                        if ajuste_finde:
+                            if salida.weekday() == 5:
+                                salida = anterior_habil(salida)
+                            elif salida.weekday() == 6:
+                                salida = siguiente_habil(salida)
+                        if ajuste_festivos and (salida.normalize() in dias_festivos):
+                            dia_semana = salida.weekday()
+                            if dia_semana == 0:
+                                salida = siguiente_habil(salida)
+                            elif dia_semana in [1, 2, 3]:
+                                anterior = anterior_habil(salida)
+                                siguiente = siguiente_habil(salida)
+                                carga_ant  = carga_salida.get(anterior, 0)
+                                carga_sig  = carga_salida.get(siguiente, 0)
+                                salida = anterior if carga_ant <= carga_sig else siguiente
+                            elif dia_semana == 4:
+                                salida = anterior_habil(salida)
 
-                        # Probar todas las opciones de días de sal (normal y +1 si aplica)
-                        for d_sal in dias_sal_opciones:
-                            salida_pre = entrada + timedelta(days=d_sal)
-                            salida = ajustar_salida(salida_pre)
-
-                            cap_sal_dia = get_cap_sal(salida, attempt)
-                            if carga_salida.get(salida, 0) + unds <= cap_sal_dia:
-                                # ---- PRS: JDOT no pasa por prensas
-                                if prod.strip().upper() != "JDOT":
-                                    entrada_prensas = salida.normalize()  # MISMO DÍA que SALIDA_SAL
-                                    # Comprobar capacidad ENTRADA_PRENSAS (mismo día)
-                                    cap_ent_pr = get_cap_prensas_ent(entrada_prensas, attempt)
-                                    used_ent_pr = int(carga_prensas_entrada.get(entrada_prensas, 0))
-                                    if used_ent_pr + unds > cap_ent_pr:
-                                        pass  # no cabe ENTRADA_PRENSAS
-                                    else:
-                                        # SALIDA_PRENSAS: día hábil siguiente (o +1 si no cabe)
-                                        salida1 = siguiente_habil(entrada_prensas)
-                                        cap1 = get_cap_prensas_sal(salida1, attempt)
-                                        used1 = int(carga_prensas_salida.get(salida1, 0))
-                                        if used1 + unds <= cap1:
-                                            salida_prensas_final = salida1
-                                        else:
-                                            salida2 = siguiente_habil(salida1)
-                                            cap2 = get_cap_prensas_sal(salida2, attempt)
-                                            used2 = int(carga_prensas_salida.get(salida2, 0))
-                                            if used2 + unds <= cap2:
-                                                salida_prensas_final = salida2
-                                            else:
-                                                salida_prensas_final = None
-                                        if salida_prensas_final is not None:
-                                            diff = abs(d_sal - dias_sal_optimos)  # 0 para óptimo, 1 para +1
-                                            score = (diff, entrada, attempt)
-                                            candidatos.append((score, entrada, salida, entrada_prensas, salida_prensas_final))
+                        cap_sal_dia = get_cap_sal(salida, attempt)
+                        if carga_salida.get(salida, 0) + unds <= cap_sal_dia:
+                            # ---- PRS: JDOT no pasa por prensas
+                            if prod.strip().upper() != "JDOT":
+                                entrada_prensas = salida.normalize()  # MISMO DÍA que SALIDA_SAL
+                                # Comprobar capacidad ENTRADA_PRENSAS (mismo día)
+                                cap_ent_pr = get_cap_prensas_ent(entrada_prensas, attempt)
+                                used_ent_pr = int(carga_prensas_entrada.get(entrada_prensas, 0))
+                                if used_ent_pr + unds > cap_ent_pr:
+                                    pass  # no cabe en ENTRADA_PRENSAS
                                 else:
-                                    # Producto JDOT: no pasa por prensas → candidato válido sin prensas
-                                    diff = abs(d_sal - dias_sal_optimos)
-                                    score = (diff, entrada, salida, None, None)
-                                    candidatos.append((score, entrada, salida, None, None))
+                                    # SALIDA_PRENSAS: día hábil siguiente (o +1 si no cabe)
+                                    salida1 = siguiente_habil(entrada_prensas)
+                                    cap1 = get_cap_prensas_sal(salida1, attempt)
+                                    used1 = int(carga_prensas_salida.get(salida1, 0))
+                                    if used1 + unds <= cap1:
+                                        salida_prensas_final = salida1
+                                    else:
+                                        salida2 = siguiente_habil(salida1)
+                                        cap2 = get_cap_prensas_sal(salida2, attempt)
+                                        used2 = int(carga_prensas_salida.get(salida2, 0))
+                                        if used2 + unds <= cap2:
+                                            salida_prensas_final = salida2
+                                        else:
+                                            salida_prensas_final = None
+                                    if salida_prensas_final is not None:
+                                        dias_sal_cand = (salida - entrada).days
+                                        # Para el score seguimos midiendo contra los óptimos originales
+                                        diff = abs(dias_sal_cand - dias_sal_optimos)
+                                        score = (diff, entrada, attempt)
+                                        candidatos.append((score, entrada, salida, entrada_prensas, salida_prensas_final))
+                            else:
+                                # Producto JDOT: no pasa por prensas → candidato válido sin prensas
+                                dias_sal_cand = (salida - entrada).days
+                                diff = abs(dias_sal_cand - dias_sal_optimos)
+                                score = (diff, entrada, attempt)
+                                candidatos.append((score, entrada, salida, None, None))
 
                 entrada = siguiente_habil(entrada)
 
             if candidatos:
-                # Elegir mejor candidato (prioriza menor diff de días SAL, luego entrada más temprana, luego intento)
+                # Elegir mejor candidato (ajuste a DIAS_SAL_OPTIMOS, luego entrada temprana, luego intento)
                 candidatos.sort(key=lambda t: t[0])
                 _, entrada_sel, salida_sel, entrada_pr_sel, salida_pr_sel = candidatos[0]
 
@@ -426,7 +434,7 @@ def planificar_filas_na(
                 asignado = True
                 break
 
-        # Si no se pudo asignar → generar sugerencias (incluye prensas y prueba +1 día si aplica)
+        # Si no se pudo asignar → generar sugerencias (incluye prensas)
         if not asignado:
             df_corr.at[idx, "LOTE_NO_ENCAJA"] = "Sí"
 
@@ -445,103 +453,105 @@ def planificar_filas_na(
                     def_est = deficits_estab(dia_recepcion, entrada - pd.Timedelta(days=1), unds)
                     deficit_estab_max = max(def_est.values()) if def_est else 0
 
-                    # Probar las opciones de días de SAL (normal y +1 si aplica) y quedarnos con la de menor total déficit
-                    mejor = None  # (total_def, datos...)
-                    for d_sal in dias_sal_opciones:
-                        salida_pre = entrada + timedelta(days=d_sal)
-                        salida = ajustar_salida(salida_pre)
+                    # Usar óptimos efectivos
+                    dias_sal_optimos_eff = dias_sal_optimos + 1 if es_rango_12_13(row) else dias_sal_optimos
 
-                        cap_sal_dia = get_cap_sal(salida, attempt)
-                        deficit_sal = max(0, (carga_salida.get(salida, 0) + unds) - cap_sal_dia)
+                    salida = entrada + timedelta(days=dias_sal_optimos_eff)
+                    if ajuste_finde:
+                        if salida.weekday() == 5:
+                            salida = anterior_habil(salida)
+                        elif salida.weekday() == 6:
+                            salida = siguiente_habil(salida)
+                    if ajuste_festivos and (salida.normalize() in dias_festivos):
+                        dia_semana = salida.weekday()
+                        if dia_semana == 0:
+                            salida = siguiente_habil(salida)
+                        elif dia_semana in [1, 2, 3]:
+                            anterior = anterior_habil(salida)
+                            siguiente = siguiente_habil(salida)
+                            carga_ant = carga_salida.get(anterior, 0)
+                            carga_sig = carga_salida.get(siguiente, 0)
+                            salida = anterior if carga_ant <= carga_sig else siguiente
+                        elif dia_semana == 4:
+                            salida = anterior_habil(salida)
 
-                        # ---- Déficits y propuesta en PRENSAS (solo si no es JDOT)
-                        deficit_ent_pr = 0
-                        deficit_sal_pr = 0
-                        entrada_pr_prop = pd.NaT
-                        salida_pr_prop = pd.NaT
+                    cap_sal_dia = get_cap_sal(salida, attempt)
+                    deficit_sal = max(0, (carga_salida.get(salida, 0) + unds) - cap_sal_dia)
 
-                        if prod.strip().upper() != "JDOT":
-                            entrada_pr = pd.to_datetime(salida).normalize()  # propuesta: mismo día que SALIDA_SAL
-                            entrada_pr_prop = entrada_pr
+                    # ---- Déficits y propuesta en PRENSAS (solo si no es JDOT)
+                    deficit_ent_pr = 0
+                    deficit_sal_pr = 0
+                    entrada_pr_prop = pd.NaT
+                    salida_pr_prop = pd.NaT
 
-                            # ENTRADA_PRENSAS (con intentos)
-                            cap_ent_pr = get_cap_prensas_ent(entrada_pr, attempt)
-                            used_ent_pr = int(carga_prensas_entrada.get(entrada_pr, 0))
-                            deficit_ent_pr = max(0, (used_ent_pr + unds) - cap_ent_pr)
+                    if prod.strip().upper() != "JDOT":
+                        entrada_pr = pd.to_datetime(salida).normalize()  # propuesta: mismo día que SALIDA_SAL
+                        entrada_pr_prop = entrada_pr
 
-                            # SALIDA_PRENSAS: día hábil siguiente (o +1 si no cabe) → escoger la que tenga MENOR déficit
-                            salida1 = siguiente_habil(entrada_pr)
-                            cap1 = get_cap_prensas_sal(salida1, attempt); used1 = int(carga_prensas_salida.get(salida1, 0))
-                            deficit1 = max(0, (used1 + unds) - cap1)
+                        # ENTRADA_PRENSAS (con intentos)
+                        cap_ent_pr = get_cap_prensas_ent(entrada_pr, attempt)
+                        used_ent_pr = int(carga_prensas_entrada.get(entrada_pr, 0))
+                        deficit_ent_pr = max(0, (used_ent_pr + unds) - cap_ent_pr)
 
-                            salida2 = siguiente_habil(salida1)
-                            cap2 = get_cap_prensas_sal(salida2, attempt); used2 = int(carga_prensas_salida.get(salida2, 0))
-                            deficit2 = max(0, (used2 + unds) - cap2)
+                        # SALIDA_PRENSAS: día hábil siguiente (o +1 si no cabe) → escoger la que tenga MENOR déficit
+                        salida1 = siguiente_habil(entrada_pr)
+                        cap1 = get_cap_prensas_sal(salida1, attempt); used1 = int(carga_prensas_salida.get(salida1, 0))
+                        deficit1 = max(0, (used1 + unds) - cap1)
 
-                            if deficit1 <= deficit2:
-                                salida_pr_prop = salida1
-                                deficit_sal_pr = deficit1
-                            else:
-                                salida_pr_prop = salida2
-                                deficit_sal_pr = deficit2
+                        salida2 = siguiente_habil(salida1)
+                        cap2 = get_cap_prensas_sal(salida2, attempt); used2 = int(carga_prensas_salida.get(salida2, 0))
+                        deficit2 = max(0, (used2 + unds) - cap2)
 
-                        total_def = int(deficit_ent + deficit_estab_max + deficit_sal + deficit_ent_pr + deficit_sal_pr)
-                        criterio = (total_def, abs(d_sal - dias_sal_optimos), salida)  # total → diff días → salida más temprana
+                        if deficit1 <= deficit2:
+                            salida_pr_prop = salida1
+                            deficit_sal_pr = deficit1
+                        else:
+                            salida_pr_prop = salida2
+                            deficit_sal_pr = deficit2
 
-                        item = (criterio, entrada, salida, entrada_pr_prop, salida_pr_prop,
-                                attempt, deficit_ent, deficit_estab_max, deficit_sal,
-                                deficit_ent_pr, deficit_sal_pr)
-
-                        if (mejor is None) or (item[0] < mejor[0]):
-                            mejor = item
-
-                    # Registrar la mejor opción de ese attempt para esta entrada
-                    if mejor is not None:
-                        (_crit, ent_prop, sal_prop, ent_pr_prop, sal_pr_prop,
-                         att, d_ent, d_est, d_sal, d_ent_pr, d_sal_pr) = mejor
-
-                        recomendaciones = []
-                        if d_ent > 0:
+                    # Generar texto de recomendación
+                    recomendaciones = []
+                    if deficit_ent > 0:
+                        recomendaciones.append(
+                            f"Subir ENTRADA_SAL el {entrada.normalize().date()} en +{int(deficit_ent)} unds (INTENTO {attempt})."
+                        )
+                    if deficit_sal > 0:
+                        recomendaciones.append(
+                            f"Subir SALIDA_SAL el {salida.normalize().date()} en +{int(deficit_sal)} unds (INTENTO {attempt})."
+                        )
+                    if deficit_estab_max > 0:
+                        dias_estab = [f"{k.date()}(+{v})" for k, v in list(def_est.items())[:3] if v > 0]
+                        if dias_estab:
+                            recomendaciones.append("Subir ESTABILIZACIÓN en: " + ", ".join(dias_estab))
+                    if prod.strip().upper() != "JDOT":
+                        if deficit_ent_pr > 0:
                             recomendaciones.append(
-                                f"Subir ENTRADA_SAL el {ent_prop.normalize().date()} en +{int(d_ent)} unds (INTENTO {att})."
+                                f"Subir ENTRADA_PRENSAS el {entrada_pr_prop.date()} en +{int(deficit_ent_pr)} unds."
                             )
-                        if d_sal > 0:
+                        if deficit_sal_pr > 0:
                             recomendaciones.append(
-                                f"Subir SALIDA_SAL el {sal_prop.normalize().date()} en +{int(d_sal)} unds (INTENTO {att})."
+                                f"Subir SALIDA_PRENSAS ({salida_pr_prop.date()}) en +{int(deficit_sal_pr)} unds."
                             )
-                        if d_est > 0:
-                            dias_estab = [f"{k.date()}(+{v})" for k, v in list(def_est.items())[:3] if v > 0]
-                            if dias_estab:
-                                recomendaciones.append("Subir ESTABILIZACIÓN en: " + ", ".join(dias_estab))
-                        if prod.strip().upper() != "JDOT":
-                            if d_ent_pr > 0:
-                                recomendaciones.append(
-                                    f"Subir ENTRADA_PRENSAS el {ent_pr_prop.date()} en +{int(d_ent_pr)} unds."
-                                )
-                            if d_sal_pr > 0:
-                                recomendaciones.append(
-                                    f"Subir SALIDA_PRENSAS ({sal_pr_prop.date()}) en +{int(d_sal_pr)} unds."
-                                )
 
-                        sugerencias_rows_lote.append({
-                            "LOTE": lote_id,
-                            "PRODUCTO": prod,
-                            "UNDS": unds,
-                            "DIA_RECEPCION": pd.to_datetime(dia_recepcion).normalize(),
-                            "ENTRADA_PROPUESTA": pd.to_datetime(ent_prop).normalize(),
-                            "SALIDA_PROPUESTA": pd.to_datetime(sal_prop).normalize(),
-                            "ENTRADA_PROPUESTA_PRENSAS": pd.to_datetime(ent_pr_prop) if pd.notna(ent_pr_prop) else pd.NaT,
-                            "SALIDA_PROPUESTA_PRENSAS": pd.to_datetime(sal_pr_prop) if pd.notna(sal_pr_prop) else pd.NaT,
-                            "INTENTO": att,
-                            "DEFICIT_ENTRADA": int(d_ent),
-                            "DEFICIT_ESTAB_MAX": int(d_est),
-                            "DEFICIT_SALIDA": int(d_sal),
-                            "DEFICIT_ENTRADA_PRENSAS": int(d_ent_pr),
-                            "DEFICIT_SALIDA_PRENSAS": int(d_sal_pr),
-                            "MAX_DEFICIT": int(max(d_ent, d_est, d_sal, d_ent_pr, d_sal_pr)),
-                            "TOTAL_DEFICIT": int(d_ent + d_est + d_sal + d_ent_pr + d_sal_pr),
-                            "RECOMENDACION": " | ".join(recomendaciones) if recomendaciones else "Sin ajustes necesarios"
-                        })
+                    sugerencias_rows_lote.append({
+                        "LOTE": lote_id,
+                        "PRODUCTO": prod,
+                        "UNDS": unds,
+                        "DIA_RECEPCION": pd.to_datetime(dia_recepcion).normalize(),
+                        "ENTRADA_PROPUESTA": pd.to_datetime(entrada).normalize(),
+                        "SALIDA_PROPUESTA": pd.to_datetime(salida).normalize(),
+                        "ENTRADA_PROPUESTA_PRENSAS": pd.to_datetime(entrada_pr_prop) if pd.notna(entrada_pr_prop) else pd.NaT,
+                        "SALIDA_PROPUESTA_PRENSAS": pd.to_datetime(salida_pr_prop) if pd.notna(salida_pr_prop) else pd.NaT,
+                        "INTENTO": attempt,
+                        "DEFICIT_ENTRADA": int(deficit_ent),
+                        "DEFICIT_ESTAB_MAX": int(deficit_estab_max),
+                        "DEFICIT_SALIDA": int(deficit_sal),
+                        "DEFICIT_ENTRADA_PRENSAS": int(deficit_ent_pr),
+                        "DEFICIT_SALIDA_PRENSAS": int(deficit_sal_pr),
+                        "MAX_DEFICIT": int(max(deficit_ent, deficit_estab_max, deficit_sal, deficit_ent_pr, deficit_sal_pr)),
+                        "TOTAL_DEFICIT": int(deficit_ent + deficit_estab_max + deficit_sal + deficit_ent_pr + deficit_sal_pr),
+                        "RECOMENDACION": " | ".join(recomendaciones) if recomendaciones else "Sin ajustes necesarios"
+                    })
 
                 entrada = siguiente_habil(entrada)
 
@@ -550,8 +560,6 @@ def planificar_filas_na(
                     key=lambda r: (r["MAX_DEFICIT"], r["TOTAL_DEFICIT"], r["ENTRADA_PROPUESTA"])
                 )
                 sugerencias_rows.extend(sugerencias_rows_lote[:20])
-
-    # (Eliminado el cálculo de DIFERENCIA_DIAS_SAL a petición)
 
     # Sugerencias DF
     cols_sug = [
@@ -606,6 +614,11 @@ if uploaded_file is not None:
             .replace({"SÍ": "SI"})
         )
         df.loc[~df[col_flag].isin(["SI", "NO"]), col_flag] = "NO"
+
+    # --- Normaliza MIN_PESO / MAX_PESO a float (solo por columnas numéricas se detecta el rango 12-13) ---
+    for colw in ["MIN_PESO", "MAX_PESO"]:
+        if colw in df.columns:
+            df[colw] = df[colw].apply(_to_float_or_nan)
 
     # Overrides por PRODUCTO
     dias_max_por_producto = {}
@@ -1051,7 +1064,6 @@ if uploaded_file is not None:
                         showlegend=False
                     ))
 
-        label_shift = pd.Timedelta(hours=8)
         annotations_p = []
         tot_pe = pd.DataFrame()
         tot_ps = pd.DataFrame()
