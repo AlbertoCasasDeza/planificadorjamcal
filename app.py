@@ -36,7 +36,6 @@ estab_cap = st.sidebar.number_input(
 
 # --- Capacidad de PRENSAS (global 1º/2º intento) ---
 st.sidebar.subheader("Capacidad global· ENTRADA PRENSAS")
-st.sidebar.subheader("Capacidad global · ENTRADA PRENSAS")
 cap_prensas_ent_1 = st.sidebar.number_input("Entrada · 1º intento", value=3800, step=100, min_value=0)
 cap_prensas_ent_2 = st.sidebar.number_input("Entrada · 2º intento", value=4200, step=100, min_value=0)
 
@@ -1163,6 +1162,7 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
