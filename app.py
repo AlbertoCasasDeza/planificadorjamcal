@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from io import BytesIO
 
 st.set_page_config(page_title="Planificador Lotes Jamcal", layout="wide")
-st.title("🧠 Planificador de Lotes Salazón DSE")
+st.title("🧠 Planificador de Lotes Salazón Jamcal")
 
 # -------------------------------
 # Panel de configuración (globales)
@@ -1104,6 +1104,7 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
