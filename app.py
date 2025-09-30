@@ -15,16 +15,16 @@ st.sidebar.header("Parámetros de planificación")
 
 # Capacidad global ENTRADA
 st.sidebar.subheader("Capacidad global · ENTRADA SAL")
-cap_ent_1 = st.sidebar.number_input("Entrada · 1º intento", value=3100, step=100, min_value=0)
-cap_ent_2 = st.sidebar.number_input("Entrada · 2º intento", value=3500, step=100, min_value=0)
+cap_ent_1 = st.sidebar.number_input("Entrada · 1º intento", value=3800, step=100, min_value=0)
+cap_ent_2 = st.sidebar.number_input("Entrada · 2º intento", value=4200, step=100, min_value=0)
 
 # Capacidad global SALIDA
 st.sidebar.subheader("Capacidad global · SALIDA SAL")
-cap_sal_1 = st.sidebar.number_input("Salida · 1º intento", value=3100, step=100, min_value=0)
-cap_sal_2 = st.sidebar.number_input("Salida · 2º intento", value=3500, step=100, min_value=0)
+cap_sal_1 = st.sidebar.number_input("Salida · 1º intento", value=3800, step=100, min_value=0)
+cap_sal_2 = st.sidebar.number_input("Salida · 2º intento", value=4200, step=100, min_value=0)
 
 # Límite GLOBAL en días naturales entre DIA (recepción) y ENTRADA_SAL
-dias_max_almacen_global = st.sidebar.number_input("Días máx. almacenamiento (GLOBAL)", value=5, step=1)
+dias_max_almacen_global = st.sidebar.number_input("Días máx. almacenamiento (GLOBAL)", value=2, step=1)
 
 # Capacidad de estabilización (valor base)
 estab_cap = st.sidebar.number_input(
@@ -34,8 +34,8 @@ estab_cap = st.sidebar.number_input(
 
 # --- Capacidad de PRENSAS ---
 st.sidebar.subheader("Capacidad · PRENSAS")
-cap_prensas_ent_global = st.sidebar.number_input("Capacidad diaria ENTRADA PRENSAS", value=3300, step=100, min_value=0)
-cap_prensas_sal_global = st.sidebar.number_input("Capacidad diaria SALIDA PRENSAS", value=3200, step=100, min_value=0)
+cap_prensas_ent_global = st.sidebar.number_input("Capacidad diaria ENTRADA PRENSAS", value=3800, step=100, min_value=0)
+cap_prensas_sal_global = st.sidebar.number_input("Capacidad diaria SALIDA PRENSAS", value=3800, step=100, min_value=0)
 
 dias_festivos_default = [
     "2025-01-01", "2025-04-18", "2025-05-01", "2025-08-15",
@@ -1132,3 +1132,4 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
