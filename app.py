@@ -262,8 +262,22 @@ def planificar_filas_na(
     sugerencias_rows = []
 
     pendientes = df_corr[df_corr["ENTRADA_SAL"].isna()].copy()
-    if "DIA" in pendientes.columns:
-        pendientes = pendientes.sort_values(["DIA", "PRODUCTO"], kind="stable")
+
+    # --- PRIORIDAD: primero USA/MEX == "SI" ---
+    def _prioritario(row):
+        usa = str(row.get("USA", "NO")).strip().upper()
+        mex = str(row.get("MEX", "NO")).strip().upper()
+        return 1 if (usa == "SI" or mex == "SI") else 0
+
+    pendientes["__PRIO__"] = pendientes.apply(_prioritario, axis=1)
+
+    # Orden de trabajo: PRIO desc → DIA asc → PRODUCTO asc (si existe)
+    if {"DIA", "PRODUCTO"}.issubset(pendientes.columns):
+        pendientes = pendientes.sort_values(["__PRIO__", "DIA", "PRODUCTO"], ascending=[False, True, True], kind="stable")
+    elif "DIA" in pendientes.columns:
+        pendientes = pendientes.sort_values(["__PRIO__", "DIA"], ascending=[False, True], kind="stable")
+    else:
+        pendientes = pendientes.sort_values(["__PRIO__"], ascending=[False], kind="stable")
 
     for idx, row in pendientes.iterrows():
         dia_recepcion    = row["DIA"]
@@ -545,6 +559,20 @@ if uploaded_file is not None:
             df[col] = pd.to_datetime(df[col], errors="coerce")
     if "UNDS" in df.columns:
         df["UNDS"] = pd.to_numeric(df["UNDS"], errors="coerce").fillna(0).astype(int)
+
+    # --- Normaliza columnas USA/MEX (SI/NO) ---
+    for col_flag in ["USA", "MEX"]:
+        if col_flag not in df.columns:
+            df[col_flag] = "NO"  # por defecto si no existe
+        df[col_flag] = (
+            df[col_flag]
+            .astype(str)
+            .str.strip()
+            .str.upper()
+            .replace({"SÍ": "SI"})   # por si viene con tilde
+        )
+        # Cualquier valor no reconocido → NO
+        df.loc[~df[col_flag].isin(["SI", "NO"]), col_flag] = "NO"
 
     # Overrides por PRODUCTO
     dias_max_por_producto = {}
@@ -1104,12 +1132,3 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
-
-
-
-
-
-
-
-
