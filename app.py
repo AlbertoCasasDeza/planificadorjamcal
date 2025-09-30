@@ -15,13 +15,22 @@ st.sidebar.header("Parámetros de planificación")
 
 # Capacidad global ENTRADA SAL
 st.sidebar.subheader("Capacidad global · ENTRADA SAL")
-cap_ent_1 = st.sidebar.number_input("Entrada · 1º intento", value=3800, step=100, min_value=0)
-cap_ent_2 = st.sidebar.number_input("Entrada · 2º intento", value=4200, step=100, min_value=0)
+cap_ent_1 = st.sidebar.number_input("Entrada sal · 1º intento", value=3800, step=100, min_value=0)
+cap_ent_2 = st.sidebar.number_input("Entrada sal · 2º intento", value=4200, step=100, min_value=0)
 
 # Capacidad global SALIDA SAL
 st.sidebar.subheader("Capacidad global · SALIDA SAL")
-cap_sal_1 = st.sidebar.number_input("Salida · 1º intento", value=3800, step=100, min_value=0)
-cap_sal_2 = st.sidebar.number_input("Salida · 2º intento", value=4200, step=100, min_value=0)
+cap_sal_1 = st.sidebar.number_input("Salida sal · 1º intento", value=3800, step=100, min_value=0)
+cap_sal_2 = st.sidebar.number_input("Salida sal · 2º intento", value=4200, step=100, min_value=0)
+
+# --- Capacidad de PRENSAS (global 1º/2º intento) ---
+st.sidebar.subheader("Capacidad global· ENTRADA PRENSAS")
+cap_prensas_ent_1 = st.sidebar.number_input("Entrada prensas · 1º intento", value=3800, step=100, min_value=0)
+cap_prensas_ent_2 = st.sidebar.number_input("Entrada prensas · 2º intento", value=4200, step=100, min_value=0)
+
+st.sidebar.subheader("Capacidad global· SALIDA PRENSAS")
+cap_prensas_sal_1 = st.sidebar.number_input("Salida prensas · 1º intento", value=3800, step=100, min_value=0)
+cap_prensas_sal_2 = st.sidebar.number_input("Salida prensas · 2º intento", value=4200, step=100, min_value=0)
 
 # Límite GLOBAL en días naturales entre DIA (recepción) y ENTRADA_SAL
 st.sidebar.subheader("Días máx. almacenamiento (GLOBAL)")
@@ -33,15 +42,6 @@ estab_cap = st.sidebar.number_input(
     "Capacidad cámara de estabilización (unds)",
     value=4700, step=100, min_value=0
 )
-
-# --- Capacidad de PRENSAS (global 1º/2º intento) ---
-st.sidebar.subheader("Capacidad global· ENTRADA PRENSAS")
-cap_prensas_ent_1 = st.sidebar.number_input("Entrada · 1º intento", value=3800, step=100, min_value=0)
-cap_prensas_ent_2 = st.sidebar.number_input("Entrada · 2º intento", value=4200, step=100, min_value=0)
-
-st.sidebar.subheader("Capacidad global· SALIDA PRENSAS")
-cap_prensas_sal_1 = st.sidebar.number_input("Salida · 1º intento", value=3800, step=100, min_value=0)
-cap_prensas_sal_2 = st.sidebar.number_input("Salida · 2º intento", value=4200, step=100, min_value=0)
 
 dias_festivos_default = [
     "2025-01-01", "2025-04-18", "2025-05-01", "2025-08-15",
@@ -1162,6 +1162,7 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
