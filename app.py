@@ -857,7 +857,7 @@ if uploaded_file is not None:
 
     # Liberar SOLO las filas seleccionadas preservando tipos
     datetime_cols = [c for c in ["ENTRADA_SAL", "SALIDA_SAL", "ENTRADA_PRENSAS", "SALIDA_PRENSAS"] if c in df_trabajo.columns]
-    numeric_cols  = [c for c in ["DIAS_SAL", "DIAS_ALMACENADOS"] if c in df_trabajo.columns]
+    numeric_cols  = [c for c in ["DIAS_SAL", "DIAS_ALMACENADOS", "DIFERENCIA_DIAS_SAL"] if c in df_trabajo.columns]
     text_cols     = [c for c in ["LOTE_NO_ENCAJA"] if c in df_trabajo.columns]
 
     if datetime_cols:
@@ -1197,4 +1197,5 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
