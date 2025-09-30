@@ -417,15 +417,22 @@ def planificar_filas_na(
                     cap_sal_dia = get_cap_sal(salida, attempt)
                     deficit_sal = max(0, (carga_salida.get(salida, 0) + unds) - cap_sal_dia)
 
-                    # ---- Déficits en PRENSAS (solo si no es JDOT)
+                    # ---- Déficits y propuesta en PRENSAS (solo si no es JDOT)
                     deficit_ent_pr = 0
                     deficit_sal_pr = 0
+                    entrada_pr_prop = pd.NaT
+                    salida_pr_prop = pd.NaT
+
                     if prod.strip().upper() != "JDOT":
-                        entrada_pr = pd.to_datetime(salida).normalize()
+                        entrada_pr = pd.to_datetime(salida).normalize()  # propuesta: mismo día que SALIDA_SAL
+                        entrada_pr_prop = entrada_pr
+
+                        # ENTRADA_PRENSAS
                         cap_ent_pr = get_cap_prensas_ent(entrada_pr)
                         used_ent_pr = int(carga_prensas_entrada.get(entrada_pr, 0))
                         deficit_ent_pr = max(0, (used_ent_pr + unds) - cap_ent_pr)
 
+                        # SALIDA_PRENSAS: día hábil siguiente (o +1 si no cabe) → escoger la que tenga MENOR déficit
                         salida1 = siguiente_habil(entrada_pr)
                         cap1 = get_cap_prensas_sal(salida1); used1 = int(carga_prensas_salida.get(salida1, 0))
                         deficit1 = max(0, (used1 + unds) - cap1)
@@ -434,7 +441,13 @@ def planificar_filas_na(
                         cap2 = get_cap_prensas_sal(salida2); used2 = int(carga_prensas_salida.get(salida2, 0))
                         deficit2 = max(0, (used2 + unds) - cap2)
 
-                        deficit_sal_pr = min(deficit1, deficit2)
+                        # Propuesta: el día con menor déficit (si empatan, el más temprano)
+                        if deficit1 <= deficit2:
+                            salida_pr_prop = salida1
+                            deficit_sal_pr = deficit1
+                        else:
+                            salida_pr_prop = salida2
+                            deficit_sal_pr = deficit2
 
                     # Generar texto de recomendación
                     recomendaciones = []
@@ -453,11 +466,11 @@ def planificar_filas_na(
                     if prod.strip().upper() != "JDOT":
                         if deficit_ent_pr > 0:
                             recomendaciones.append(
-                                f"Subir ENTRADA_PRENSAS el {salida.normalize().date()} en +{int(deficit_ent_pr)} unds."
+                                f"Subir ENTRADA_PRENSAS el {entrada_pr_prop.date()} en +{int(deficit_ent_pr)} unds."
                             )
                         if deficit_sal_pr > 0:
                             recomendaciones.append(
-                                f"Subir SALIDA_PRENSAS (día hábil sig. o +1) en +{int(deficit_sal_pr)} unds."
+                                f"Subir SALIDA_PRENSAS ({salida_pr_prop.date()}) en +{int(deficit_sal_pr)} unds."
                             )
 
                     sugerencias_rows_lote.append({
@@ -465,8 +478,10 @@ def planificar_filas_na(
                         "PRODUCTO": prod,
                         "UNDS": unds,
                         "DIA_RECEPCION": pd.to_datetime(dia_recepcion).normalize(),
-                        "ENTRADA_PROPUESTA": pd.to_datetime(entrada).normalize(),
-                        "SALIDA_PROPUESTA": pd.to_datetime(salida).normalize(),
+                        "ENTRADA_PROPUESTA_SAL": pd.to_datetime(entrada).normalize(),
+                        "SALIDA_PROPUESTA_SAL": pd.to_datetime(salida).normalize(),
+                        "ENTRADA_PROPUESTA_PRENSAS": pd.to_datetime(entrada_pr_prop) if pd.notna(entrada_pr_prop) else pd.NaT,
+                        "SALIDA_PROPUESTA_PRENSAS": pd.to_datetime(salida_pr_prop) if pd.notna(salida_pr_prop) else pd.NaT,
                         "INTENTO": attempt,
                         "DEFICIT_ENTRADA": int(deficit_ent),
                         "DEFICIT_ESTAB_MAX": int(deficit_estab_max),
@@ -493,7 +508,9 @@ def planificar_filas_na(
     # Sugerencias DF
     cols_sug = [
         "LOTE", "PRODUCTO", "UNDS", "DIA_RECEPCION",
-        "ENTRADA_PROPUESTA", "SALIDA_PROPUESTA", "INTENTO",
+        "ENTRADA_PROPUESTA_SAL", "SALIDA_PROPUESTA_SAL",
+        "ENTRADA_PROPUESTA_PRENSAS", "SALIDA_PROPUESTA_PRENSAS",
+        "INTENTO",
         "DEFICIT_ENTRADA", "DEFICIT_ESTAB_MAX", "DEFICIT_SALIDA",
         "DEFICIT_ENTRADA_PRENSAS", "DEFICIT_SALIDA_PRENSAS",
         "MAX_DEFICIT", "TOTAL_DEFICIT", "RECOMENDACION"
@@ -1087,6 +1104,7 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
