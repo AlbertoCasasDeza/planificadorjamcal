@@ -978,7 +978,7 @@ if uploaded_file is not None:
         ticks = pd.Index(sorted(set(
             (pivot_e.index.tolist() if not pivot_e.empty else []) +
             (pivot_s.index.tolist() if not pivot_s.empty else [])
-        ))))
+        )))
         fig.update_layout(
             barmode="relative",
             xaxis_title="Fecha",
@@ -1161,3 +1161,4 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
