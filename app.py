@@ -432,7 +432,7 @@ def planificar_filas_na(
                         used_ent_pr = int(carga_prensas_entrada.get(entrada_pr, 0))
                         deficit_ent_pr = max(0, (used_ent_pr + unds) - cap_ent_pr)
 
-                        # SALIDA_PRENSAS: día hábil siguiente (o +1 si no cabe) → escoger la que tenga MENOR déficit
+                        # SALIDA_PRENSAS: día hábil siguiente (o +1 si no cabe)
                         salida1 = siguiente_habil(entrada_pr)
                         cap1 = get_cap_prensas_sal(salida1); used1 = int(carga_prensas_salida.get(salida1, 0))
                         deficit1 = max(0, (used1 + unds) - cap1)
@@ -478,8 +478,8 @@ def planificar_filas_na(
                         "PRODUCTO": prod,
                         "UNDS": unds,
                         "DIA_RECEPCION": pd.to_datetime(dia_recepcion).normalize(),
-                        "ENTRADA_PROPUESTA": pd.to_datetime(entrada).normalize(),
-                        "SALIDA_PROPUESTA": pd.to_datetime(salida).normalize(),
+                        "ENTRADA_PROPUESTA_SAL": pd.to_datetime(entrada).normalize(),
+                        "SALIDA_PROPUESTA_SAL": pd.to_datetime(salida).normalize(),
                         "ENTRADA_PROPUESTA_PRENSAS": pd.to_datetime(entrada_pr_prop) if pd.notna(entrada_pr_prop) else pd.NaT,
                         "SALIDA_PROPUESTA_PRENSAS": pd.to_datetime(salida_pr_prop) if pd.notna(salida_pr_prop) else pd.NaT,
                         "INTENTO": attempt,
@@ -497,7 +497,7 @@ def planificar_filas_na(
 
             if sugerencias_rows_lote:
                 sugerencias_rows_lote.sort(
-                    key=lambda r: (r["MAX_DEFICIT"], r["TOTAL_DEFICIT"], r["ENTRADA_PROPUESTA"])
+                    key=lambda r: (r["MAX_DEFICIT"], r["TOTAL_DEFICIT"], r["ENTRADA_PROPUESTA_SAL"])
                 )
                 sugerencias_rows.extend(sugerencias_rows_lote[:20])
 
@@ -508,7 +508,7 @@ def planificar_filas_na(
     # Sugerencias DF
     cols_sug = [
         "LOTE", "PRODUCTO", "UNDS", "DIA_RECEPCION",
-        "ENTRADA_PROPUESTA", "SALIDA_PROPUESTA",
+        "ENTRADA_PROPUESTA_SAL", "SALIDA_PROPUESTA_SAL",
         "ENTRADA_PROPUESTA_PRENSAS", "SALIDA_PROPUESTA_PRENSAS",
         "INTENTO",
         "DEFICIT_ENTRADA", "DEFICIT_ESTAB_MAX", "DEFICIT_SALIDA",
@@ -1104,6 +1104,7 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
