@@ -23,7 +23,6 @@ st.sidebar.subheader("Capacidad global · SALIDA SAL")
 cap_sal_1 = st.sidebar.number_input("Salida · 1º intento", value=3800, step=100, min_value=0)
 cap_sal_2 = st.sidebar.number_input("Salida · 2º intento", value=4200, step=100, min_value=0)
 
-
 # Límite GLOBAL en días naturales entre DIA (recepción) y ENTRADA_SAL
 st.sidebar.subheader("Días máx. almacenamiento (GLOBAL)")
 dias_max_almacen_global = st.sidebar.number_input("Días máx. almacenamiento (GLOBAL)", value=2, step=1)
@@ -39,6 +38,7 @@ estab_cap = st.sidebar.number_input(
 st.sidebar.subheader("Capacidad global · ENTRADA PRENSAS")
 cap_prensas_ent_1 = st.sidebar.number_input("Entrada · 1º intento", value=3800, step=100, min_value=0)
 cap_prensas_ent_2 = st.sidebar.number_input("Entrada · 2º intento", value=4200, step=100, min_value=0)
+
 st.sidebar.subheader("Capacidad global · SALIDA PRENSAS")
 cap_prensas_sal_1 = st.sidebar.number_input("Salida · 1º intento", value=3800, step=100, min_value=0)
 cap_prensas_sal_2 = st.sidebar.number_input("Salida · 2º intento", value=4200, step=100, min_value=0)
@@ -1162,6 +1162,7 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
