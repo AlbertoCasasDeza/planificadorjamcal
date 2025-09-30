@@ -411,6 +411,9 @@ def planificar_filas_na(
                 df_corr.at[idx, "SALIDA_SAL"]       = salida_sel
                 df_corr.at[idx, "DIAS_SAL"]         = (salida_sel - entrada_sel).days
                 df_corr.at[idx, "DIAS_ALMACENADOS"] = (entrada_sel - dia_recepcion).days
+                df_corr.at[idx, "DIFERENCIA_DIAS_SAL"] = (
+                    (salida_sel - entrada_sel).days - int(row["DIAS_SAL_OPTIMOS"])
+                )
                 df_corr.at[idx, "LOTE_NO_ENCAJA"]   = "No"
 
                 # Actualizar cargas SAL y estabilización
@@ -1191,6 +1194,7 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
