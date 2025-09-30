@@ -580,12 +580,6 @@ def planificar_filas_na(
 
     return df_corr, df_sugerencias
     
-    # --- Métrica: diferencia real frente a óptimos originales ---
-    if {"DIAS_SAL", "DIAS_SAL_OPTIMOS"}.issubset(df_corr.columns):
-        d1 = pd.to_numeric(df_corr["DIAS_SAL"], errors="coerce")
-        d2 = pd.to_numeric(df_corr["DIAS_SAL_OPTIMOS"], errors="coerce")
-        df_corr["DIFERENCIA_DIAS_SAL"] = (d1 - d2).astype("Int64")
-
 # -------------------------------
 # Ejecución de la app
 # -------------------------------
@@ -1197,5 +1191,6 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
