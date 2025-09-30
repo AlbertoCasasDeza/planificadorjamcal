@@ -39,6 +39,7 @@ st.sidebar.subheader("Capacidad · PRENSAS (global 1º/2º intento)")
 cap_prensas_ent_1 = st.sidebar.number_input("ENTRADA PRENSAS · 1º intento", value=3800, step=100, min_value=0)
 cap_prensas_ent_2 = st.sidebar.number_input("ENTRADA PRENSAS · 2º intento", value=4200, step=100, min_value=0)
 
+st.sidebar.subheader("Capacidad · PRENSAS (global 1º/2º intento)")
 cap_prensas_sal_1 = st.sidebar.number_input("SALIDA PRENSAS · 1º intento", value=3800, step=100, min_value=0)
 cap_prensas_sal_2 = st.sidebar.number_input("SALIDA PRENSAS · 2º intento", value=4200, step=100, min_value=0)
 
@@ -1161,6 +1162,7 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
