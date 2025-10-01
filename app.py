@@ -917,7 +917,7 @@ if uploaded_file is not None:
         df_trabajo[c] = pd.to_numeric(df_trabajo[c], errors="coerce").astype("Int64")
 
     # Botón de planificación incremental
-if st.button("🚀 Aplicar planificación (solo lotes seleccionados)"):
+    if st.button("🚀 Aplicar planificación (solo lotes seleccionados)"):
     # invalidar sugerencias antiguas
     st.session_state.pop("df_sugerencias", None)
 
@@ -1248,6 +1248,7 @@ if st.button("🚀 Aplicar planificación (solo lotes seleccionados)"):
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
