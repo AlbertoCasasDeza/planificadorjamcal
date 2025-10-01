@@ -918,21 +918,21 @@ if uploaded_file is not None:
 
     # Botón de planificación incremental
     if st.button("🚀 Aplicar planificación (solo lotes seleccionados)"):
-    # invalidar sugerencias antiguas
-    st.session_state.pop("df_sugerencias", None)
+        # invalidar sugerencias antiguas
+        st.session_state.pop("df_sugerencias", None)
 
-    # muy importante: DF de contexto = df_base (plan vigente ANTES de liberar filas)
-    df_planificado, df_sugerencias = planificar_filas_na(
-        df_trabajo, dias_max_almacen_global, dias_max_por_producto,
-        estab_cap, cap_overrides_ent, cap_overrides_sal, estab_cap_overrides,
-        cap_prensas_ent_1, cap_prensas_ent_2,
-        cap_prensas_sal_1, cap_prensas_sal_2,
-        cap_overrides_prensas_ent, cap_overrides_prensas_sal,
-        df_context_consolidado=df_base   # ← AQUÍ el contexto
-    )
-    st.session_state["df_planificado"] = df_planificado
-    st.session_state["df_sugerencias"] = df_sugerencias
-    st.success(f"✅ Replanificación aplicada a {len(idx_a_replan)} lote(s). El resto no se ha modificado.")
+        # muy importante: DF de contexto = df_base (plan vigente ANTES de liberar filas)
+        df_planificado, df_sugerencias = planificar_filas_na(
+            df_trabajo, dias_max_almacen_global, dias_max_por_producto,
+            estab_cap, cap_overrides_ent, cap_overrides_sal, estab_cap_overrides,
+            cap_prensas_ent_1, cap_prensas_ent_2,
+            cap_prensas_sal_1, cap_prensas_sal_2,
+            cap_overrides_prensas_ent, cap_overrides_prensas_sal,
+            df_context_consolidado=df_base   # ← AQUÍ el contexto
+        )
+        st.session_state["df_planificado"] = df_planificado
+        st.session_state["df_sugerencias"] = df_sugerencias
+        st.success(f"✅ Replanificación aplicada a {len(idx_a_replan)} lote(s). El resto no se ha modificado.")
 
     # ===============================
     # Mostrar tabla editable, gráficos y estabilización (fuera del botón)
@@ -1248,12 +1248,3 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
-
-
-
-
-
-
-
-
