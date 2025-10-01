@@ -932,7 +932,7 @@ if st.button("🚀 Aplicar planificación (solo lotes seleccionados)"):
     )
     st.session_state["df_planificado"] = df_planificado
     st.session_state["df_sugerencias"] = df_sugerencias
-        st.success(f"✅ Replanificación aplicada a {len(idx_a_replan)} lote(s). El resto no se ha modificado.")
+    st.success(f"✅ Replanificación aplicada a {len(idx_a_replan)} lote(s). El resto no se ha modificado.")
 
     # ===============================
     # Mostrar tabla editable, gráficos y estabilización (fuera del botón)
@@ -1248,6 +1248,7 @@ else:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
