@@ -249,8 +249,13 @@ def planificar_filas_na(
     cap_prensas_ent_1, cap_prensas_ent_2,
     cap_prensas_sal_1, cap_prensas_sal_2,
     cap_overrides_prensas_ent,
-    cap_overrides_prensas_sal
+    cap_overrides_prensas_sal,
+    df_context_consolidado=None   # ← nuevo parámetro
 ):
+    # Si no se pasa contexto, usa el plan tal cual
+    if df_context_consolidado is None:
+        df_context_consolidado = df_plan
+
     df_corr = df_plan.copy()
 
     # Asegurar columnas auxiliares (incluye prensas)
@@ -1236,5 +1241,6 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
