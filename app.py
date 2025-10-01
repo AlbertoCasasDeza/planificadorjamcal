@@ -54,7 +54,8 @@ dias_festivos_list = st.sidebar.multiselect(
 )
 dias_festivos = pd.to_datetime(dias_festivos_list)
 
-# Estos toggles quedan por compatibilidad visual; la política real se gobierna en _salidas_validas
+# NOTA: Ajuste_finde/ajuste_festivos se dejan por compatibilidad visual, pero
+# la política real se aplica en la función _salidas_validas según las reglas nuevas.
 ajuste_finde = st.sidebar.checkbox("Ajustar fines de semana (SALIDA)", value=True)
 ajuste_festivos = st.sidebar.checkbox("Ajustar festivos (SALIDA)", value=True)
 
@@ -186,33 +187,23 @@ def es_rango_12_13(row) -> bool:
     except Exception:
         return False
 
-# --- NUEVO: carga consolidada real por fecha/columna ---
-def carga_consolidada(df_ref: pd.DataFrame, col_fecha: str, fecha: pd.Timestamp) -> int:
-    """
-    Devuelve la carga REAL consolidada (sum(UNDS)) en df_ref para 'col_fecha' == fecha (normalizada).
-    Si la columna no existe, devuelve 0.
-    """
-    if col_fecha not in df_ref.columns or "UNDS" not in df_ref.columns:
-        return 0
-    fechas = pd.to_datetime(df_ref[col_fecha], errors="coerce")
-    mask = fechas.dt.normalize() == pd.to_datetime(fecha).normalize()
-    return int(pd.to_numeric(df_ref.loc[mask, "UNDS"], errors="coerce").fillna(0).sum())
-
 # -------------------------------
 # Lógica de SALIDA válida (nueva política)
 # -------------------------------
 def _salidas_validas(entrada, row, dias_sal_optimos):
     """
-    Devuelve salidas candidatas que cumplen:
-    - Sábados: prohibidos.
-    - Domingos/Festivos: prohibidos, salvo 12–13 kg con +1 exacto.
-    - 12–13 kg: se prueban OPTIMO y OPTIMO+1 exacto (máximo +1).
-    - Otros rangos: sólo OPTIMO y debe ser hábil no festivo.
+    Devuelve una lista (ordenada por preferencia) de salidas candidatas que cumplen:
+    - Sábados: prohibidos siempre.
+    - Domingos/Festivos: prohibidos, salvo que el lote sea 12–13 kg y use +1 exactamente.
+    - Rango 12–13 kg: se prueban como mucho dos opciones: OPTIMO (0) y OPTIMO+1 (exactamente +1 día natural).
+      El +1 debe resultar en un día hábil NO festivo (no se permite +2 ni 'siguiente hábil' si implica más de +1).
+    - Otros rangos: sólo OPTIMO, y debe ser día hábil NO festivo.
     """
     base = entrada + timedelta(days=int(dias_sal_optimos))
     es_1213 = es_rango_12_13(row)
 
     def _es_valida(fecha):
+        # domingo/sábado/festivo son inválidos
         if fecha.weekday() == 5:  # sábado
             return False
         if fecha.weekday() == 6:  # domingo
@@ -249,13 +240,8 @@ def planificar_filas_na(
     cap_prensas_ent_1, cap_prensas_ent_2,
     cap_prensas_sal_1, cap_prensas_sal_2,
     cap_overrides_prensas_ent,
-    cap_overrides_prensas_sal,
-    df_context_consolidado=None   # ← nuevo parámetro
+    cap_overrides_prensas_sal
 ):
-    # Si no se pasa contexto, usa el plan tal cual
-    if df_context_consolidado is None:
-        df_context_consolidado = df_plan
-
     df_corr = df_plan.copy()
 
     # Asegurar columnas auxiliares (incluye prensas)
@@ -368,7 +354,7 @@ def planificar_filas_na(
 
     pendientes["__PRIO__"] = pendientes.apply(_prioritario, axis=1)
 
-    # Orden de trabajo: PRIO desc → DIA asc → PRODUCTO asc
+    # Orden de trabajo: PRIO desc → DIA asc → PRODUCTO asc (si existe)
     if {"DIA", "PRODUCTO"}.issubset(pendientes.columns):
         pendientes = pendientes.sort_values(["__PRIO__", "DIA", "PRODUCTO"], ascending=[False, True, True], kind="stable")
     elif "DIA" in pendientes.columns:
@@ -422,7 +408,7 @@ def planificar_filas_na(
                                             else:
                                                 salida_prensas_final = None
                                         if salida_prensas_final is not None:
-                                            # Score: cercanía a óptimos, entrada más temprana, intento
+                                            # Score: cercanía a óptimos (sin contar +1 especial), entrada más temprana, intento
                                             dias_sal_cand = (salida - entrada).days
                                             diff = abs(dias_sal_cand - dias_sal_optimos)
                                             score = (diff, entrada, attempt)
@@ -436,6 +422,7 @@ def planificar_filas_na(
                 entrada = siguiente_habil(entrada)
 
             if candidatos:
+                # Elegir mejor candidato (ajuste a DIAS_SAL_OPTIMOS, luego entrada temprana, luego intento)
                 candidatos.sort(key=lambda t: t[0])
                 _, entrada_sel, salida_sel, entrada_pr_sel, salida_pr_sel = candidatos[0]
 
@@ -470,7 +457,7 @@ def planificar_filas_na(
                 asignado = True
                 break
 
-        # Si no se pudo asignar → generar sugerencias (INCLUYE DÉFICITS CONSOLIDADOS)
+        # Si no se pudo asignar → generar sugerencias (incluye prensas)
         if not asignado:
             df_corr.at[idx, "LOTE_NO_ENCAJA"] = "Sí"
 
@@ -483,20 +470,18 @@ def planificar_filas_na(
                     continue
 
                 for attempt in [1, 2]:
-                    # ENTRADA_SAL — déficit REAL consolidado
                     cap_ent_dia = get_cap_ent(entrada, attempt)
-                    carga_real_ent = carga_consolidada(df_context_consolidado, "ENTRADA_SAL", entrada)
-                    deficit_ent = max(0, (carga_real_ent + unds) - cap_ent_dia)
+                    deficit_ent = max(0, (carga_entrada.get(entrada, 0) + unds) - cap_ent_dia)
 
-                    # ESTABILIZACIÓN
                     def_est = deficits_estab(dia_recepcion, entrada - pd.Timedelta(days=1), unds)
                     deficit_estab_max = max(def_est.values()) if def_est else 0
 
-                    # Candidatas SALIDA según política
+                    # Candidatas de salida según política (0 o +1 si 12–13)
                     salidas_cands = _salidas_validas(entrada, row, dias_sal_optimos)
 
-                    # Si por política no hay ninguna salida válida
+                    # si no hay ninguna salida válida por política, no tiene sentido evaluar capacidad SAL
                     if not salidas_cands:
+                        # Aun así, generamos recomendación de política
                         recomendaciones = []
                         base = entrada + timedelta(days=int(dias_sal_optimos))
                         if base.weekday() == 5:
@@ -504,7 +489,7 @@ def planificar_filas_na(
                         elif base.weekday() == 6:
                             recomendaciones.append("Política: domingo prohibido salvo 12–13 con +1 exacto.")
                         elif es_festivo(base):
-                            recomendaciones.append("Política: festivo prohibido; solo 12–13 con +1 exacto si el +1 cae en hábil no festivo.")
+                            recomendaciones.append("Política: festivo prohibido; sólo 12–13 con +1 exacto si el día +1 es hábil no festivo.")
                         sugerencias_rows_lote.append({
                             "LOTE": lote_id,
                             "PRODUCTO": prod,
@@ -527,36 +512,32 @@ def planificar_filas_na(
                         continue
 
                     for salida in salidas_cands:
-                        # SALIDA_SAL — déficit REAL consolidado
                         cap_sal_dia = get_cap_sal(salida, attempt)
-                        carga_real_sal = carga_consolidada(df_context_consolidado, "SALIDA_SAL", salida)
-                        deficit_sal = max(0, (carga_real_sal + unds) - cap_sal_dia)
+                        deficit_sal = max(0, (carga_salida.get(salida, 0) + unds) - cap_sal_dia)
 
-                        # PRENSAS — déficits reales consolidados
+                        # ---- Déficits y propuesta en PRENSAS (solo si no es JDOT)
                         deficit_ent_pr = 0
                         deficit_sal_pr = 0
                         entrada_pr_prop = pd.NaT
                         salida_pr_prop = pd.NaT
 
                         if prod.strip().upper() != "JDOT":
-                            entrada_pr = pd.to_datetime(salida).normalize()  # mismo día que SALIDA_SAL
+                            entrada_pr = pd.to_datetime(salida).normalize()  # propuesta: mismo día que SALIDA_SAL
                             entrada_pr_prop = entrada_pr
 
-                            # ENTRADA_PRENSAS
+                            # ENTRADA_PRENSAS (con intentos)
                             cap_ent_pr = get_cap_prensas_ent(entrada_pr, attempt)
-                            carga_real_ent_pr = carga_consolidada(df_context_consolidado, "ENTRADA_PRENSAS", entrada_pr)
-                            deficit_ent_pr = max(0, (carga_real_ent_pr + unds) - cap_ent_pr)
+                            used_ent_pr = int(carga_prensas_entrada.get(entrada_pr, 0))
+                            deficit_ent_pr = max(0, (used_ent_pr + unds) - cap_ent_pr)
 
-                            # SALIDA_PRENSAS — elegimos la de menor déficit REAL
+                            # SALIDA_PRENSAS: día hábil siguiente (o +1 si no cabe) → escoger con MENOR déficit
                             salida1 = siguiente_habil(entrada_pr)
-                            cap1 = get_cap_prensas_sal(salida1, attempt)
-                            carga_real_sal_pr1 = carga_consolidada(df_context_consolidado, "SALIDA_PRENSAS", salida1)
-                            deficit1 = max(0, (carga_real_sal_pr1 + unds) - cap1)
+                            cap1 = get_cap_prensas_sal(salida1, attempt); used1 = int(carga_prensas_salida.get(salida1, 0))
+                            deficit1 = max(0, (used1 + unds) - cap1)
 
                             salida2 = siguiente_habil(salida1)
-                            cap2 = get_cap_prensas_sal(salida2, attempt)
-                            carga_real_sal_pr2 = carga_consolidada(df_context_consolidado, "SALIDA_PRENSAS", salida2)
-                            deficit2 = max(0, (carga_real_sal_pr2 + unds) - cap2)
+                            cap2 = get_cap_prensas_sal(salida2, attempt); used2 = int(carga_prensas_salida.get(salida2, 0))
+                            deficit2 = max(0, (used2 + unds) - cap2)
 
                             if deficit1 <= deficit2:
                                 salida_pr_prop = salida1
@@ -714,6 +695,7 @@ if uploaded_file is not None:
             "CAP1":  pd.Series([], dtype="Int64"),
             "CAP2":  pd.Series([], dtype="Int64"),
         })
+    # Editor
     cap_overrides_ent_df = st.sidebar.data_editor(
         st.session_state.cap_overrides_ent_df,
         num_rows="dynamic",
@@ -725,6 +707,7 @@ if uploaded_file is not None:
         },
         key="cap_overrides_ent_editor"
     )
+    # Persistir + normalizar + construir dict
     st.session_state.cap_overrides_ent_df = cap_overrides_ent_df.copy()
     st.session_state.cap_overrides_ent_df["FECHA"] = pd.to_datetime(st.session_state.cap_overrides_ent_df["FECHA"], errors="coerce").dt.normalize()
     for c in ("CAP1", "CAP2"):
@@ -918,17 +901,12 @@ if uploaded_file is not None:
 
     # Botón de planificación incremental
     if st.button("🚀 Aplicar planificación (solo lotes seleccionados)"):
-        # invalidar sugerencias antiguas
-        st.session_state.pop("df_sugerencias", None)
-
-        # muy importante: DF de contexto = df_base (plan vigente ANTES de liberar filas)
         df_planificado, df_sugerencias = planificar_filas_na(
             df_trabajo, dias_max_almacen_global, dias_max_por_producto,
             estab_cap, cap_overrides_ent, cap_overrides_sal, estab_cap_overrides,
             cap_prensas_ent_1, cap_prensas_ent_2,
             cap_prensas_sal_1, cap_prensas_sal_2,
-            cap_overrides_prensas_ent, cap_overrides_prensas_sal,
-            df_context_consolidado=df_base   # ← AQUÍ el contexto
+            cap_overrides_prensas_ent, cap_overrides_prensas_sal
         )
         st.session_state["df_planificado"] = df_planificado
         st.session_state["df_sugerencias"] = df_sugerencias
@@ -1214,14 +1192,12 @@ if uploaded_file is not None:
         if "df_sugerencias" in st.session_state:
             df_sug = st.session_state["df_sugerencias"]
         else:
-            # Regenerar sugerencias contra el plan ya planificado (df_show) como contexto
             _, df_sug = planificar_filas_na(
                 df_show, dias_max_almacen_global, dias_max_por_producto,
                 estab_cap, cap_overrides_ent, cap_overrides_sal, estab_cap_overrides,
                 cap_prensas_ent_1, cap_prensas_ent_2,
                 cap_prensas_sal_1, cap_prensas_sal_2,
-                cap_overrides_prensas_ent, cap_overrides_prensas_sal,
-                df_context_consolidado=df_show   # ← contexto = plan actual visible
+                cap_overrides_prensas_ent, cap_overrides_prensas_sal
             )
             st.session_state["df_sugerencias"] = df_sug
 
