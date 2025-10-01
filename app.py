@@ -770,7 +770,7 @@ if uploaded_file is not None:
         column_config={
             "FECHA": st.column_config.DateColumn("Fecha (ENTRADA_PRENSAS)", format="YYYY-MM-DD"),
             "CAP1":  st.column_config.NumberColumn("Capacidad 1º intento", step=50, min_value=0),
-            "CAP2":  st.columnColumn("Capacidad 2º intento", step=50, min_value=0),
+            "CAP2":  st.column_config.NumberColumn("Capacidad 2º intento", step=50, min_value=0),
         },
         key="cap_overrides_prensas_ent_editor"
     )
@@ -1224,6 +1224,7 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
