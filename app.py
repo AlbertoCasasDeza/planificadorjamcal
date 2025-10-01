@@ -1211,19 +1211,19 @@ if st.button("🚀 Aplicar planificación (solo lotes seleccionados)"):
         # ===============================
         # 📌 Sugerencias
         # ===============================
-if "df_sugerencias" in st.session_state:
-    df_sug = st.session_state["df_sugerencias"]
-else:
-    # Regenerar sugerencias contra el plan ya planificado (df_show) como contexto
-    _, df_sug = planificar_filas_na(
-        df_show, dias_max_almacen_global, dias_max_por_producto,
-        estab_cap, cap_overrides_ent, cap_overrides_sal, estab_cap_overrides,
-        cap_prensas_ent_1, cap_prensas_ent_2,
-        cap_prensas_sal_1, cap_prensas_sal_2,
-        cap_overrides_prensas_ent, cap_overrides_prensas_sal,
-        df_context_consolidado=df_show   # ← contexto = plan actual visible
-    )
-    st.session_state["df_sugerencias"] = df_sug
+        if "df_sugerencias" in st.session_state:
+            df_sug = st.session_state["df_sugerencias"]
+        else:
+            # Regenerar sugerencias contra el plan ya planificado (df_show) como contexto
+            _, df_sug = planificar_filas_na(
+                df_show, dias_max_almacen_global, dias_max_por_producto,
+                estab_cap, cap_overrides_ent, cap_overrides_sal, estab_cap_overrides,
+                cap_prensas_ent_1, cap_prensas_ent_2,
+                cap_prensas_sal_1, cap_prensas_sal_2,
+                cap_overrides_prensas_ent, cap_overrides_prensas_sal,
+                df_context_consolidado=df_show   # ← contexto = plan actual visible
+            )
+            st.session_state["df_sugerencias"] = df_sug
 
         with st.expander("🧩 Lotes que no encajan: sugerencias", expanded=not df_sug.empty):
             if df_sug.empty:
@@ -1248,6 +1248,7 @@ else:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
