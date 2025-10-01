@@ -485,7 +485,7 @@ def planificar_filas_na(
                 for attempt in [1, 2]:
                     # ENTRADA_SAL — déficit REAL consolidado
                     cap_ent_dia = get_cap_ent(entrada, attempt)
-                    carga_real_ent = carga_consolidada(df_corr, "ENTRADA_SAL", entrada)
+                    carga_real_ent = carga_consolidada(df_context_consolidado, "ENTRADA_SAL", entrada)
                     deficit_ent = max(0, (carga_real_ent + unds) - cap_ent_dia)
 
                     # ESTABILIZACIÓN
@@ -529,7 +529,7 @@ def planificar_filas_na(
                     for salida in salidas_cands:
                         # SALIDA_SAL — déficit REAL consolidado
                         cap_sal_dia = get_cap_sal(salida, attempt)
-                        carga_real_sal = carga_consolidada(df_corr, "SALIDA_SAL", salida)
+                        carga_real_sal = carga_consolidada(df_context_consolidado, "SALIDA_SAL", salida)
                         deficit_sal = max(0, (carga_real_sal + unds) - cap_sal_dia)
 
                         # PRENSAS — déficits reales consolidados
@@ -544,18 +544,18 @@ def planificar_filas_na(
 
                             # ENTRADA_PRENSAS
                             cap_ent_pr = get_cap_prensas_ent(entrada_pr, attempt)
-                            carga_real_ent_pr = carga_consolidada(df_corr, "ENTRADA_PRENSAS", entrada_pr)
+                            carga_real_ent_pr = carga_consolidada(df_context_consolidado, "ENTRADA_PRENSAS", entrada_pr)
                             deficit_ent_pr = max(0, (carga_real_ent_pr + unds) - cap_ent_pr)
 
                             # SALIDA_PRENSAS — elegimos la de menor déficit REAL
                             salida1 = siguiente_habil(entrada_pr)
                             cap1 = get_cap_prensas_sal(salida1, attempt)
-                            carga_real_sal_pr1 = carga_consolidada(df_corr, "SALIDA_PRENSAS", salida1)
+                            carga_real_sal_pr1 = carga_consolidada(df_context_consolidado, "SALIDA_PRENSAS", salida1)
                             deficit1 = max(0, (carga_real_sal_pr1 + unds) - cap1)
 
                             salida2 = siguiente_habil(salida1)
                             cap2 = get_cap_prensas_sal(salida2, attempt)
-                            carga_real_sal_pr2 = carga_consolidada(df_corr, "SALIDA_PRENSAS", salida2)
+                            carga_real_sal_pr2 = carga_consolidada(df_context_consolidado, "SALIDA_PRENSAS", salida2)
                             deficit2 = max(0, (carga_real_sal_pr2 + unds) - cap2)
 
                             if deficit1 <= deficit2:
@@ -1241,6 +1241,7 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
