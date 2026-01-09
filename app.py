@@ -954,7 +954,90 @@ if uploaded_file is not None:
             use_container_width=True,
             key="plan_editor"
         )
+        # ===============================
+          # 📅 Resumen diario (SAL + PRENSAS)
+          # ===============================
+          st.subheader("📅 Resumen diario de cargas (SAL y PRENSAS)")
 
+          df_res = df_editable.copy()
+
+          def _safe_group(df_, date_col):
+            """Agrupa por date_col devolviendo unds y nº lotes (si existe LOTE)."""
+            if date_col not in df_.columns:
+              return pd.DataFrame(columns=["FECHA", "UNDS", "LOTES"])
+
+            tmp = df_.dropna(subset=[date_col, "UNDS"]).copy()
+            if tmp.empty:
+              return pd.DataFrame(columns=["FECHA", "UNDS", "LOTES"])
+
+            tmp["FECHA"] = pd.to_datetime(tmp[date_col], errors="coerce").dt.normalize()
+            tmp = tmp.dropna(subset=["FECHA"])
+
+            if "LOTE" in tmp.columns:
+              out = tmp.groupby("FECHA").agg(
+                UNDS=("UNDS", "sum"),
+                LOTES=("LOTE", "nunique")
+              ).reset_index()
+            else:
+              out = tmp.groupby("FECHA").agg(
+                UNDS=("UNDS", "sum"),
+                LOTES=("UNDS", "size")
+              ).reset_index()
+
+            return out
+
+          # 1) Agregados por proceso
+          ent_sal = _safe_group(df_res, "ENTRADA_SAL").rename(columns={"UNDS": "ENTRADA_SAL_UNDS", "LOTES": "ENTRADA_SAL_LOTES"})
+          sal_sal = _safe_group(df_res, "SALIDA_SAL").rename(columns={"UNDS": "SALIDA_SAL_UNDS", "LOTES": "SALIDA_SAL_LOTES"})
+          ent_pr  = _safe_group(df_res, "ENTRADA_PRENSAS").rename(columns={"UNDS": "ENTRADA_PRENSAS_UNDS", "LOTES": "ENTRADA_PRENSAS_LOTES"})
+          sal_pr  = _safe_group(df_res, "SALIDA_PRENSAS").rename(columns={"UNDS": "SALIDA_PRENSAS_UNDS", "LOTES": "SALIDA_PRENSAS_LOTES"})
+
+          # 2) Merge por FECHA (outer)
+          dfs = [ent_sal, sal_sal, ent_pr, sal_pr]
+          df_resumen_dia = None
+          for dfi in dfs:
+            if df_resumen_dia is None:
+              df_resumen_dia = dfi.copy()
+            else:
+              df_resumen_dia = df_resumen_dia.merge(dfi, on="FECHA", how="outer")
+
+          if df_resumen_dia is None or df_resumen_dia.empty:
+            st.info("No hay datos suficientes para construir el resumen diario.")
+          else:
+            # 3) Completar NaN y ordenar
+            for c in df_resumen_dia.columns:
+              if c != "FECHA":
+                df_resumen_dia[c] = pd.to_numeric(df_resumen_dia[c], errors="coerce").fillna(0).astype(int)
+
+            df_resumen_dia = df_resumen_dia.sort_values("FECHA").reset_index(drop=True)
+
+            st.dataframe(
+              df_resumen_dia,
+              use_container_width=True,
+              hide_index=True,
+              column_config={
+                "FECHA": st.column_config.DateColumn("Fecha", format="YYYY-MM-DD"),
+
+                "ENTRADA_SAL_UNDS": st.column_config.NumberColumn("Entrada SAL (unds)"),
+                "ENTRADA_SAL_LOTES": st.column_config.NumberColumn("Entrada SAL (lotes)"),
+                "SALIDA_SAL_UNDS": st.column_config.NumberColumn("Salida SAL (unds)"),
+                "SALIDA_SAL_LOTES": st.column_config.NumberColumn("Salida SAL (lotes)"),
+
+                "ENTRADA_PRENSAS_UNDS": st.column_config.NumberColumn("Entrada PRENSAS (unds)"),
+                "ENTRADA_PRENSAS_LOTES": st.column_config.NumberColumn("Entrada PRENSAS (lotes)"),
+                "SALIDA_PRENSAS_UNDS": st.column_config.NumberColumn("Salida PRENSAS (unds)"),
+                "SALIDA_PRENSAS_LOTES": st.column_config.NumberColumn("Salida PRENSAS (lotes)"),
+              }
+            )
+
+            # Descarga opcional del resumen
+            resumen_xlsx = generar_excel(df_resumen_dia, "resumen_diario_sal_prensas.xlsx")
+            st.download_button(
+              "💾 Descargar resumen diario (Excel)",
+              data=resumen_xlsx,
+              file_name="resumen_diario_sal_prensas.xlsx",
+              mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
         # -------------------------------
         # Gráfico: Entradas/Salidas SAL por lote/fecha
         # -------------------------------
@@ -1224,6 +1307,7 @@ if uploaded_file is not None:
             file_name="planificacion_lotes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
